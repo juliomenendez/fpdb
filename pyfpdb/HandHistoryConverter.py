@@ -414,7 +414,10 @@ or None if we fail to get the info """
             for kodec in self.__listof(self.codepage):
                 #print "trying", kodec
                 try:
-                    in_fh = codecs.open(self.in_path, 'r', kodec)
+                    if self.in_path != "-":
+                        in_fh = codecs.open(self.in_path, 'r', kodec)
+                    else:
+                        in_fh = self.in_fh
                     self.whole_file = in_fh.read()
                     in_fh.close()
                     self.obs = self.whole_file[self.index:]

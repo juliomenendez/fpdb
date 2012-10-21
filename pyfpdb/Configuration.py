@@ -1484,7 +1484,8 @@ class Config:
         self.site_ids = dict(sites)
 
     def get_site_id(self, site):
-        return( self.site_ids[site] )
+        """return( self.site_ids[site] )"""
+        return 0
         
     def get_aux_windows(self):
         """Gets the list of mucked window formats in the configuration."""
