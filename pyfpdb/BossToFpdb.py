@@ -31,25 +31,35 @@ class Boss(HandHistoryConverter):
 
     sitename = "Boss"
     filetype = "text"
-    codepage = "utf-8"
+    codepage = ("utf8", "cp1252")
     siteId   = 4
     
-    Lim_Blinds = {      '0.20': ('0.05','0.10'),     '0.50': ('0.13', '0.25'),
-                        '1.00': ('0.25', '0.50'),       '1': ('0.25', '0.50'),
-                        '2.00': ('0.50', '1.00'),       '2': ('0.50', '1.00'),
-                        '4.00': ('1.00', '2.00'),       '4': ('1.00', '2.00'),
-                       '10.00': ('2.50', '5.00'),      '10': ('2.50', '5.00'),
-                       '16.00': ('4.00', '8.00'),      '16': ('4.00', '8.00'),
-                       '20.00': ('5.00', '10.00'),     '20': ('5.00', '10.00'),
-                       '30.00': ('7.50', '15.00'),     '30': ('7.50', '15.00'),
-                       '40.00': ('10.00', '20.00'),    '40': ('10.00', '20.00'),
+    Lim_Blinds = {      '0.20': ('0.05','0.10'),        '0.50': ('0.13', '0.25'),
+                        '1.00': ('0.25', '0.50'),          '1': ('0.25', '0.50'),
+                        '2.00': ('0.50', '1.00'),          '2': ('0.50', '1.00'),
+                        '4.00': ('1.00', '2.00'),          '4': ('1.00', '2.00'),
+                        '6.00': ('1.50', '3.00'),          '6': ('1.50', '3.00'),
+                        '8.00': ('2.00', '4.00'),          '8': ('2.00', '4.00'),
+                       '10.00': ('2.50', '5.00'),         '10': ('2.50', '5.00'),
+                       '16.00': ('4.00', '8.00'),         '16': ('4.00', '8.00'),
+                       '20.00': ('5.00', '10.00'),        '20': ('5.00', '10.00'),
+                       '30.00': ('7.50', '15.00'),        '30': ('7.50', '15.00'),
+                       '40.00': ('10.00', '20.00'),       '40': ('10.00', '20.00'),
+                       '60.00': ('15.00', '30.00'),       '60': ('15.00', '30.00'),
+                       '80.00': ('20.00', '40.00'),       '80': ('20.00', '40.00'),
+                      '100.00': ('25.00', '50.00'),      '100': ('25.00', '50.00'),
+                      '200.00': ('50.00', '100.00'),     '200': ('50.00', '100.00'),
+                      '400.00': ('100.00', '200.00'),    '400': ('100.00', '200.00'),
+                      '800.00': ('200.00', '400.00'),    '800': ('200.00', '400.00'),
+                      '1000.00': ('250.00', '500.00'),  '1000': ('250.00', '500.00'),
+                      '2000.00': ('500.00', '1000.00'), '2000': ('500.00', '1000.00'),
                   }
 
     # Static regexes
     re_GameInfo     = re.compile("""<HISTORY\sID="(?P<HID>[0-9]+)"\s
                                     SESSION="session(?P<SESSIONID>[0-9]+)\.xml"\s
-                                    TABLE="(?P<TABLE>[-\sa-zA-Z0-9\xc0-\xfc/.]+)"\s
-                                    GAME="(?P<GAME>GAME_THM|GAME_OMA|GAME_FCD)"\sGAMETYPE="[_a-zA-Z]+"\s
+                                    TABLE="(?P<TABLE>.+?)"\s
+                                    GAME="(?P<GAME>GAME_THM|GAME_OMA|GAME_FCD|GAME_OMAHL)"\sGAMETYPE="[_a-zA-Z]+"\s
                                     GAMEKIND="(?P<GAMEKIND>[_a-zA-Z]+)"\s
                                     TABLECURRENCY="(?P<CURRENCY>[A-Z]+)"\s
                                     LIMIT="(?P<LIMIT>NL|PL|FL)"\s
@@ -60,7 +70,7 @@ class Boss(HandHistoryConverter):
                                     """, re.MULTILINE| re.VERBOSE)
     re_SplitHands   = re.compile('</HISTORY>')
     re_Button       = re.compile('<ACTION TYPE="HAND_DEAL" PLAYER="(?P<BUTTON>[^"]+)">\n<CARD LINK="[0-9b]+"></CARD>\n<CARD LINK="[0-9b]+"></CARD></ACTION>\n<ACTION TYPE="ACTION_', re.MULTILINE)
-    re_PlayerInfo   = re.compile('^<PLAYER NAME="(?P<PNAME>.*)" SEAT="(?P<SEAT>[0-9]+)" AMOUNT="(?P<CASH>[.0-9]+)"( STATE="(?P<STATE>STATE_EMPTY|STATE_PLAYING)" DEALER="(Y|N)")?></PLAYER>', re.MULTILINE)
+    re_PlayerInfo   = re.compile('^<PLAYER NAME="(?P<PNAME>.+)" SEAT="(?P<SEAT>[0-9]+)" AMOUNT="(?P<CASH>[.0-9]+)"( STATE="(?P<STATE>STATE_EMPTY|STATE_PLAYING|STATE_SITOUT)" DEALER="(Y|N)")?></PLAYER>', re.MULTILINE)
     re_Card        = re.compile('^<CARD LINK="(?P<CARD>[0-9]+)"></CARD>', re.MULTILINE)
     re_BoardLast    = re.compile('^<CARD LINK="(?P<CARD>[0-9]+)"></CARD></ACTION>', re.MULTILINE)
     
@@ -74,7 +84,7 @@ class Boss(HandHistoryConverter):
     re_PostBB           = re.compile(r'^<ACTION TYPE="HAND_BLINDS" PLAYER="%s" KIND="HAND_BB" VALUE="(?P<BB>[.0-9]+)"></ACTION>' %  player_re, re.MULTILINE)
     re_Antes            = re.compile(r"^%s: posts the ante \$?(?P<ANTE>[.0-9]+)" % player_re, re.MULTILINE)
     re_BringIn          = re.compile(r"^%s: brings[- ]in( low|) for \$?(?P<BRINGIN>[.0-9]+)" % player_re, re.MULTILINE)
-    re_FlopPot          = re.compile(r'^<ACTION TYPE="HAND_BOARD" VALUE="BOARD_FLOP" POT="(?P<POT>[.0-9]+)">', re.MULTILINE)
+    re_FlopPot          = re.compile(r'^<ACTION TYPE="HAND_BOARD" VALUE="BOARD_FLOP" POT="(?P<POT>[.0-9]+)"', re.MULTILINE)
     re_ShowDownPot      = re.compile(r'^<SHOWDOWN NAME="HAND_SHOWDOWN" POT="(?P<POT>[.0-9]+)"', re.MULTILINE)
     re_PostBoth         = re.compile(r'^<ACTION TYPE="HAND_BLINDS" PLAYER="%s" KIND="HAND_AB" VALUE="(?P<SBBB>[.0-9]+)"></ACTION>' %  player_re, re.MULTILINE)
     
@@ -83,12 +93,10 @@ class Boss(HandHistoryConverter):
     #'^<ACTION TYPE="(?P<ATYPE>[_A-Z]+)" PLAYER="%s"( VALUE="(?P<BET>[.0-9]+)")?></ACTION>'
     re_Action           = re.compile(r'^<ACTION TYPE="(?P<ATYPE>[_A-Z]+)" PLAYER="%s"( VALUE="(?P<BET>[.0-9]+)")?></ACTION>' %  player_re, re.MULTILINE)
 
-    re_ShowdownAction   = re.compile(r'<RESULT PLAYER="%s" WIN="[.0-9]+" HAND="(?P<HAND>\(\$STR_G_FOLD\)|[\$\(\)_ A-Z]+)">\n(?P<CARDS><CARD LINK="[0-9]+"></CARD>\n<CARD LINK="[0-9]+"></CARD>)</RESULT>' %  player_re, re.MULTILINE)
+    re_ShowdownAction   = re.compile(r'<RESULT (WINTYPE="WINTYPE_(HILO|LO|HI)" )?PLAYER="%s" WIN="[.\d]+" HAND="(?P<HAND>\(\$STR_G_FOLD\)|[\$\(\)_ A-Z]+)".+?>(?P<CARDS>(\s+<CARD LINK="[0-9]+"></CARD>){2,5})</RESULT>' %  player_re, re.MULTILINE)
     #<RESULT PLAYER="wig0r" WIN="4.10" HAND="$(STR_G_WIN_TWOPAIR) $(STR_G_CARDS_TENS) $(STR_G_ANDTEXT) $(STR_G_CARDS_EIGHTS)">
     #
-    re_CollectPot       = re.compile(r'<RESULT PLAYER="%s" WIN="(?P<POT>[.\d]+)" HAND=".+">' %  player_re, re.MULTILINE)
-    re_sitsOut          = re.compile("^%s sits out" %  player_re, re.MULTILINE)
-    re_ShownCards       = re.compile("^Seat (?P<SEAT>[0-9]+): %s \(.*\) showed \[(?P<CARDS>.*)\].*" %  player_re, re.MULTILINE)
+    re_CollectPot       = re.compile(r'<RESULT (WINTYPE="WINTYPE_(HILO|LO|HI)" )?PLAYER="%s" WIN="(?P<POT>[.\d]+)" HAND=".+"' %  player_re, re.MULTILINE)
 
     def compilePlayerRegexs(self,  hand):
         pass
@@ -121,6 +129,7 @@ class Boss(HandHistoryConverter):
         games = {              # base, category
                   "GAME_THM" : ('hold','holdem'), 
                   "GAME_OMA" : ('hold','omahahi'),
+                "GAME_OMAHL" : ('hold','omahahilo'),
                   "GAME_FCD" : ('draw','fivedraw'),
                 }
         if 'GAMEKIND' in mg:
@@ -181,13 +190,16 @@ class Boss(HandHistoryConverter):
             if hand.gametype['type'] == 'tour':
                 if key == 'SESSIONID': # No idea why Boss doesn't use the TABLETOURNEYID xml field...
                     hand.tourNo = info[key]
-                if key == 'CURRENCY':
+                if key == 'CURRENCY' and not hand.buyinCurrency:
                     hand.buyinCurrency = info[key]
                 # Hmm. Other useful tourney info doesn't appear to be readily available.
-                hand.buyin = 100
-                hand.fee = 10
-                hand.isKO = False
-
+                hand.buyin = 0
+                hand.fee = 0
+                if key == 'TABLE':
+                    if 'FREE' in info[key]:
+                        hand.buyinCurrency = 'FREE'
+                    else:                       
+                        hand.buyinCurrency = 'NA'
         
     def readButton(self, hand):
         m = self.re_Button.search(hand.handText)
@@ -196,28 +208,21 @@ class Boss(HandHistoryConverter):
                 if player[1] == m.group('BUTTON'):
                     hand.buttonpos = player[0]
                     break
-        else:
-            log.info('readButton: ' + _('not found'))
 
     def readPlayerStacks(self, hand):
-        logging.debug("readPlayerStacks")
         m = self.re_PlayerInfo.finditer(hand.handText)
         players = []
         for a in m:
-            if a.group('STATE') is not None:
-                if a.group('STATE') == 'STATE_PLAYING':
-                    hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
-            else:
-                hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
+            hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
 
     def markStreets(self, hand):
         # PREFLOP = ** Dealing down cards **
         # This re fails if,  say, river is missing; then we don't get the ** that starts the river.
         if hand.gametype['base'] in ("hold"):
             m =  re.search('<ACTION TYPE="HAND_BLINDS" PLAYER=".+" KIND="(HAND_BB|HAND_SB)" VALUE="[.0-9]+"></ACTION>(?P<PREFLOP>.+(?=<ACTION TYPE="HAND_BOARD" VALUE="BOARD_FLOP")|.+)'
-                       '((?P<FLOP><ACTION TYPE="HAND_BOARD" VALUE="BOARD_FLOP" POT="[.0-9]+">.+(?=<ACTION TYPE="HAND_BOARD" VALUE="BOARD_TURN")|.+))?'
-                       '((?P<TURN><ACTION TYPE="HAND_BOARD" VALUE="BOARD_TURN" POT="[.0-9]+">.+(?=<ACTION TYPE="HAND_BOARD" VALUE="BOARD_RIVER")|.+))?'
-                       '((?P<RIVER><ACTION TYPE="HAND_BOARD" VALUE="BOARD_RIVER" POT="[.0-9]+">.+(?=<SHOWDOWN NAME="HAND_SHOWDOWN")|.+))?', hand.handText,re.DOTALL)
+                       '((?P<FLOP><ACTION TYPE="HAND_BOARD" VALUE="BOARD_FLOP" POT="[.0-9]+".+?>.+(?=<ACTION TYPE="HAND_BOARD" VALUE="BOARD_TURN")|.+))?'
+                       '((?P<TURN><ACTION TYPE="HAND_BOARD" VALUE="BOARD_TURN" POT="[.0-9]+".+?>.+(?=<ACTION TYPE="HAND_BOARD" VALUE="BOARD_RIVER")|.+))?'
+                       '((?P<RIVER><ACTION TYPE="HAND_BOARD" VALUE="BOARD_RIVER" POT="[.0-9]+".+?>.+(?=<SHOWDOWN NAME="HAND_SHOWDOWN")|.+))?', hand.handText,re.DOTALL)
         if hand.gametype['category'] in ('27_1draw', 'fivedraw'):
             m =  re.search(r'(?P<PREDEAL>.+?(?=<ACTION TYPE="HAND_DEAL")|.+)'
                            r'(<ACTION TYPE="HAND_DEAL"(?P<DEAL>.+(?=<ACTION TYPE="HAND_BOARD")|.+))?'
@@ -255,11 +260,8 @@ class Boss(HandHistoryConverter):
             hand.addBringIn(m.group('PNAME'),  m.group('BRINGIN'))
         
     def readBlinds(self, hand):
-        try:
-            m = self.re_PostSB.search(hand.handText)
-            hand.addBlind(m.group('PNAME'), 'small blind', m.group('SB'))
-        except: # no small blind
-            hand.addBlind(None, None, None)
+        for a in self.re_PostSB.finditer(hand.handText):
+            hand.addBlind(a.group('PNAME'), 'small blind', a.group('SB'))
         for a in self.re_PostBB.finditer(hand.handText):
             hand.addBlind(a.group('PNAME'), 'big blind', a.group('BB'))
         for a in self.re_PostBoth.finditer(hand.handText):
@@ -358,7 +360,7 @@ class Boss(HandHistoryConverter):
                 # hero: [xxoooo] [x]
                 # others: not reported.
                 hand.addPlayerCards(player = player.group('PNAME'), street = street, closed = newcards)
-
+                    
     def readAction(self, hand, street):
         m = self.re_Action.finditer(hand.streets[street])
         for action in m:
@@ -367,17 +369,11 @@ class Boss(HandHistoryConverter):
             elif action.group('ATYPE') == 'ACTION_CHECK':
                 hand.addCheck( street, action.group('PNAME'))
             elif action.group('ATYPE') == 'ACTION_CALL':
-                bet = action.group('BET')
-                if street in ('PREFLOP', 'DEAL'):
-                    blind = hand.bets['BLINDSANTES'].get(action.group('PNAME'))
-                    if blind: bet = str(Decimal(action.group('BET')) - blind[-1])
+                bet = action.group('BET') 
                 hand.addCallTo(street, action.group('PNAME'), bet )
             elif action.group('ATYPE') == 'ACTION_RAISE':
-                bet = action.group('BET')
-                if street in ('PREFLOP', 'DEAL'):
-                    blind = hand.bets['BLINDSANTES'].get(action.group('PNAME'))
-                    if blind: bet = str(Decimal(action.group('BET')) - blind[-1])
-                hand.addRaiseTo( street, action.group('PNAME'), action.group('BET') )
+                bet = action.group('BET') 
+                hand.addRaiseTo( street, action.group('PNAME'), bet)
             elif action.group('ATYPE') == 'ACTION_BET':
                 hand.addBet( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == 'ACTION_DISCARD':
@@ -386,10 +382,17 @@ class Boss(HandHistoryConverter):
                 hand.addStandsPat( street, action.group('PNAME'))
             elif action.group('ATYPE') == 'ACTION_ALLIN':
                 bet = action.group('BET')
-                if street in ('PREFLOP', 'DEAL'):
-                    blind = hand.bets['BLINDSANTES'].get(action.group('PNAME'))
-                    if blind: bet = str(Decimal(action.group('BET')) - blind[0])
-                hand.addRaiseTo( street, action.group('PNAME'), action.group('BET') )
+                player = action.group('PNAME')
+                hand.checkPlayerExists(action.group('PNAME'), 'addAllIn')
+                bet = bet.replace(u',', u'') #some sites have commas
+                Ai = Decimal(bet)
+                Bp = hand.lastBet[street]
+                if Ai <= Bp:
+                    hand.addCallTo(street, player, bet)
+                elif Bp == 0:
+                    hand.addBet(street, player, bet)
+                else:
+                    hand.addRaiseTo( street, player, bet)
             else:
                 print (_("DEBUG:") + _("Unimplemented %s: '%s' '%s'") % ("readAction", action.group('PNAME'), action.group('ATYPE')))
         self.calculateAntes(street, hand)
@@ -431,8 +434,4 @@ class Boss(HandHistoryConverter):
                  hand.addCollectPot(player=m.group('PNAME'),pot=potcoll)
 
     def readShownCards(self,hand):
-        for m in self.re_ShownCards.finditer(hand.handText):
-            if m.group('CARDS') is not None:
-                cards = m.group('CARDS')
-                cards = cards.split(' ')
-                hand.addShownCards(cards=cards, player=m.group('PNAME'))
+        pass

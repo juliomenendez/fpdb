@@ -78,7 +78,7 @@ except ImportError:
     use_numpy = False
 
 
-DB_VERSION = 173
+DB_VERSION = 175
 
 
 # Variance created as sqlite has a bunch of undefined aggregate functions.
@@ -474,8 +474,6 @@ class Database:
                 , {'tab':'Boards',          'col':'handId',            'drop':1}
                 , {'tab':'HandsPlayers',    'col':'handId',            'drop':1}
                 , {'tab':'HandsPlayers',    'col':'playerId',          'drop':1}
-                , {'tab':'HandsPlayers',    'col':'cashSessionId',     'drop':1} # mct 22/3/09
-                , {'tab':'HandsPlayers',    'col':'tourSessionId',     'drop':1} # mct 22/3/09
                 , {'tab':'HandsPlayers',    'col':'tourneysPlayersId', 'drop':0}
                 , {'tab':'HudCache',        'col':'gametypeId',        'drop':1}
                 , {'tab':'HudCache',        'col':'playerId',          'drop':0}
@@ -510,8 +508,6 @@ class Database:
                 , {'tab':'Gametypes',       'col':'siteId',            'drop':0}
                 , {'tab':'HandsPlayers',    'col':'handId',            'drop':0}
                 , {'tab':'HandsPlayers',    'col':'playerId',          'drop':0}
-                , {'tab':'HandsPlayers',    'col':'cashSessionId',     'drop':0}
-                , {'tab':'HandsPlayers',    'col':'tourSessionId',     'drop':0}
                 , {'tab':'HandsPlayers',    'col':'tourneysPlayersId', 'drop':0}
                 , {'tab':'HandsActions',    'col':'handId',            'drop':0}
                 , {'tab':'HandsActions',    'col':'playerId',          'drop':0}
@@ -553,8 +549,6 @@ class Database:
                     , {'fktab':'Boards',       'fkcol':'handId',        'rtab':'Hands',         'rcol':'id', 'drop':1}
                     , {'fktab':'HandsPlayers', 'fkcol':'handId',        'rtab':'Hands',         'rcol':'id', 'drop':1}
                     , {'fktab':'HandsPlayers', 'fkcol':'playerId',      'rtab':'Players',       'rcol':'id', 'drop':1}
-                    , {'fktab':'HandsPlayers', 'fkcol':'cashSessionId', 'rtab':'CashCache',     'rcol':'id', 'drop':1}
-                    , {'fktab':'HandsPlayers', 'fkcol':'tourSessionId', 'rtab':'TourCache',     'rcol':'id', 'drop':1}
                     , {'fktab':'HandsPlayers', 'fkcol':'tourneysPlayersId','rtab':'TourneysPlayers','rcol':'id', 'drop':1}
                     , {'fktab':'HandsActions', 'fkcol':'handId',        'rtab':'Hands',         'rcol':'id', 'drop':1}
                     , {'fktab':'HandsActions', 'fkcol':'playerId',      'rtab':'Players',       'rcol':'id', 'drop':1}
@@ -583,8 +577,6 @@ class Database:
                     , {'fktab':'Boards',       'fkcol':'handId',        'rtab':'Hands',         'rcol':'id', 'drop':1}
                     , {'fktab':'HandsPlayers', 'fkcol':'handId',        'rtab':'Hands',         'rcol':'id', 'drop':1}
                     , {'fktab':'HandsPlayers', 'fkcol':'playerId',      'rtab':'Players',       'rcol':'id', 'drop':1}
-                    , {'fktab':'HandsPlayers', 'fkcol':'cashSessionId', 'rtab':'CashCache',     'rcol':'id', 'drop':1}
-                    , {'fktab':'HandsPlayers', 'fkcol':'tourSessionId', 'rtab':'TourCache',     'rcol':'id', 'drop':1}
                     , {'fktab':'HandsPlayers', 'fkcol':'tourneysPlayersId','rtab':'TourneysPlayers','rcol':'id', 'drop':1}
                     , {'fktab':'HandsActions', 'fkcol':'handId',        'rtab':'Hands',         'rcol':'id', 'drop':1}
                     , {'fktab':'HandsActions', 'fkcol':'playerId',      'rtab':'Players',       'rcol':'id', 'drop':1}
@@ -712,7 +704,6 @@ class Database:
 
             # if fastStoreHudCache is true then the hudcache will be build using the limited configuration which ignores date, seats, and position
             self.build_full_hudcache = not self.import_options['fastStoreHudCache']
-            self.build_full_database = not self.import_options['liteMode']
 
             #self.hud_hero_style = 'T'  # Duplicate set of vars just for hero - not used yet.
             #self.hud_hero_hands = 2000 # Idea is that you might want all-time stats for others
@@ -1872,6 +1863,8 @@ class Database:
         c.execute("INSERT INTO Sites (id,name,code) VALUES ('18', 'Entraction', 'TR')")
         c.execute("INSERT INTO Sites (id,name,code) VALUES ('19', 'BetOnline', 'BO')")
         c.execute("INSERT INTO Sites (id,name,code) VALUES ('20', 'Microgaming', 'MG')")
+        c.execute("INSERT INTO Sites (id,name,code) VALUES ('21', 'Bovada', 'BV')")
+        c.execute("INSERT INTO Sites (id,name,code) VALUES ('22', 'Enet', 'EN')")
         #Fill Actions
         c.execute("INSERT INTO Actions (id,name,code) VALUES ('1', 'ante', 'A')")
         c.execute("INSERT INTO Actions (id,name,code) VALUES ('2', 'small blind', 'SB')")
@@ -1897,19 +1890,8 @@ class Database:
         self.createAllForeignKeys()
     #end def rebuild_indexes
     
-    def replace_statscache(self, type, query):
-        if type=='ring':
-            query = query.replace('<tourney_insert_clause>', "")
-            query = query.replace('<tourney_select_clause>', "")
-            query = query.replace('<tourney_join_clause>', "")
-            query = query.replace('<tourney_group_clause>', "")
+    def replace_statscache(self, query):
         if self.build_full_hudcache:
-            if type=='tour':
-                query = query.replace('<tourney_insert_clause>', ",tourneyTypeId")
-                query = query.replace('<tourney_select_clause>', ",t.tourneyTypeId")
-                query = query.replace('<tourney_join_clause>', """INNER JOIN TourneysPlayers tp ON (tp.id = hp.tourneysPlayersId)
-                    INNER JOIN Tourneys t ON (t.id = tp.tourneyId)""")
-                query = rebuild_sql_tourney.replace('<tourney_group_clause>', ",t.tourneyTypeId")
             query = query.replace('<seat_num>', "h.seats as seat_num")
             query = query.replace('<hc_position>', """case when hp.position = 'B' then 'B'
                         when hp.position = 'S' then 'S'
@@ -1935,12 +1917,6 @@ class Database:
                 query = query.replace('<styleKey>', "date_format(h.startTime, 'd%y%m%d')")
                 query = query.replace('<styleKeyGroup>', ",date_format(h.startTime, 'd%y%m%d')")
         else:
-            if type=='tour':
-                query = query.replace('<tourney_insert_clause>', ",tourneyTypeId, tourneyId")
-                query = query.replace('<tourney_select_clause>', ",t.tourneyTypeId, t.id")
-                query = query.replace('<tourney_join_clause>', """INNER JOIN TourneysPlayers tp ON (tp.id = hp.tourneysPlayersId)
-                    INNER JOIN Tourneys t ON (t.id = tp.tourneyId)""")
-                query = query.replace('<tourney_group_clause>', ",t.tourneyTypeId,t.id")
             query = query.replace('<seat_num>', "'0' as seat_num")
             query = query.replace('<hc_position>', "'0' as hc_position")
             query = query.replace('<styleKey>', "'A000000' as styleKey")
@@ -2068,7 +2044,6 @@ class Database:
         c = self.get_cursor()
         c.execute("SELECT count(H.id) FROM Hands H")
         max = c.fetchone()[0]
-        c.execute(self.sql.query['clear_CC_HP'])
         c.execute(self.sql.query['clear_SC_H'])
         c.execute(self.sql.query['clear_SC_T'])
         c.execute(self.sql.query['clear_SC_CC'])
@@ -2136,8 +2111,6 @@ class Database:
                                 q = self.sql.query['update_RSC_H']
                                 q = q.replace('%s', self.sql.query['placeholder'])
                                 c.execute(q, (sid, gid, i))
-                                #q = self.sql.query['update_RSC_HP']
-                                #q = q.replace('%s', self.sql.query['placeholder'])
                         self.updateTourneysSessions()
                         self.commit()
                         break
@@ -2356,7 +2329,7 @@ class Database:
                 c.execute(q_update_sessions,  (sid, t))
                 self.commit()
 
-    def storeHandsPlayers(self, hid, pids, pdata, tid, doinsert = False, printdata = False):
+    def storeHandsPlayers(self, hid, pids, pdata, doinsert = False, printdata = False):
         #print "DEBUG: %s %s %s" %(hid, pids, pdata)
         if printdata:
             import pprint
@@ -2367,7 +2340,6 @@ class Database:
         for p, pvalue in pdata.iteritems():
             # Add (hid, pids[p]) + all the values in pvalue at the
             # keys in HANDS_PLAYERS_KEYS to hpbulk.
-            #self.tids.append(tid)
             bulk_data = [pvalue[key] for key in HANDS_PLAYERS_KEYS]
             bulk_data.append(pids[p])
             bulk_data.append(hid)
@@ -2673,11 +2645,10 @@ class Database:
         select_CC    = self.sql.query['select_CC'].replace('%s', self.sql.query['placeholder'])
         update_CC    = self.sql.query['update_CC'].replace('%s', self.sql.query['placeholder'])
         insert_CC    = self.sql.query['insert_CC'].replace('%s', self.sql.query['placeholder'])
-        update_CC_HP = self.sql.query['update_CC_HP'].replace('%s', self.sql.query['placeholder'])
         delete_CC    = self.sql.query['delete_CC'].replace('%s', self.sql.query['placeholder'])
         THRESHOLD    = timedelta(seconds=int(self.sessionTimeout * 60))
        
-        if gametype['type']=='ring' and len(heroes)>0:
+        if gametype['type']=='ring' and pdata:
             for p, pid in pids.iteritems():
                 hp = {}
                 k = (gtid, pid)
@@ -2698,7 +2669,7 @@ class Database:
                 else:
                     pdata[p]['showdownWinnings']    = 0
                     pdata[p]['nonShowdownWinnings'] = pdata[p]['totalProfit']
-                if p!=hero:
+                if p!=hero and hero:
                     if (pdata[p]['totalProfit']>0 and 0>pdata[hero]['totalProfit']):
                         pdata[p]['vsHero'] = - pdata[hero]['totalProfit']   
                     elif (pdata[hero]['totalProfit']>0 and 0>pdata[p]['totalProfit']):
@@ -2729,7 +2700,7 @@ class Database:
                                 id.append(i)
                 if len(id) == 1:
                     i = id[0]
-                    if p==hero:
+                    if pids[p]==heroes[0]:
                         self.cc[k][i]['ids'].append(hid)
                 elif len(id) == 2:
                     i, j = id[0], id[1]
@@ -2739,14 +2710,14 @@ class Database:
                     for idx,val in enumerate(cashplayer[j]['line']):
                         cashplayer[i]['line'][idx] += val
                     g = cashplayer.pop(j)
-                    if p==hero:
+                    if pids[p]==heroes[0]:
                         self.cc[k][i]['ids'].append(hid)
                         self.cc[k][i]['ids'] += g['ids']
                 elif len(id) == 0:
                     if cashplayer is None:
                         self.cc[k] = []
                     hp['endTime'] = hp['startTime']
-                    if p==hero: hp['ids'].append(hid)
+                    if pids[p]==heroes[0]: hp['ids'].append(hid)
                     self.cc[k].append(hp)
         
         if doinsert:
@@ -2826,7 +2797,7 @@ class Database:
         select_TC = self.sql.query['select_TC']
         select_TC = select_TC.replace('%s', self.sql.query['placeholder'])
         
-        if gametype['type']=='tour' and len(heroes)>0:
+        if gametype['type']=='tour' and pdata:
             for p in pdata:
                 k = (tid
                     ,pids[p]
@@ -2842,7 +2813,7 @@ class Database:
                 else:
                     pdata[p]['showdownWinnings']    = 0
                     pdata[p]['nonShowdownWinnings'] = pdata[p]['totalProfit']
-                if p!=hero:
+                if p!=hero and hero:
                     if (pdata[p]['totalProfit']>0 and 0>pdata[hero]['totalProfit']):
                         pdata[p]['vsHero'] = - pdata[hero]['totalProfit']   
                     elif (pdata[hero]['totalProfit']>0 and 0>pdata[p]['totalProfit']):
@@ -2858,7 +2829,7 @@ class Database:
                 if tourplayer is not None:
                     for idx,val in enumerate(line):
                         tourplayer['line'][idx] += val
-                    if p==hero:
+                    if pids[p]==heroes[0]:
                         tourplayer['ids'].append(hid)
                 else:
                     self.tc[k] = {'startTime' : None,
@@ -2866,7 +2837,7 @@ class Database:
                                               'hid' : hid,
                                               'ids' : []}
                     self.tc[k]['line'] = line
-                    if p==hero:
+                    if pids[p]==heroes[0]:
                         self.tc[k]['ids'].append(hid)
 
                 if not self.tc[k]['startTime'] or startTime < self.tc[k]['startTime']:
@@ -3238,7 +3209,7 @@ class Database:
         _name = Charset.to_db_utf8(name)
         if re_char.match(_name[0]):
             char = '123'
-        elif re_char.match(_name[1]):
+        elif len(_name)==1 or re_char.match(_name[1]):
             char = _name[0] + '1'
         else:
             char = _name[:2]
@@ -3411,15 +3382,10 @@ class Database:
                 cursor.execute (self.sql.query['insertTourneyType'].replace('%s', self.sql.query['placeholder']), row)
                 ttid = self.get_last_insert_id(cursor)
             if updateDb:
-                q = self.sql.query['getTourneyIdByTourneyNo'].replace('%s', self.sql.query['placeholder'])
-                cursor.execute(q, (_ttid, obj.tourNo))
-                tmp=cursor.fetchone()
-                tid = tmp[0]
                 #print 'DEBUG createOrUpdateTourneyType:', 'old', _ttid, 'new', ttid, row
                 q = self.sql.query['updateTourneyTypeId'].replace('%s', self.sql.query['placeholder'])
-                cursor.execute(q, (ttid, tid))
-                if self.build_full_hudcache:
-                    self.ttclean.add(_ttid)
+                cursor.execute(q, (ttid, obj.siteId, obj.tourNo))
+                self.ttclean.add(_ttid)
         return ttid
     
     def cleanUpTourneyTypes(self):
@@ -3496,7 +3462,7 @@ class Database:
             tourneyId = resultDict["id"]
             for ev in expectedValues :
                 if getattr(summary, ev[0])==None and resultDict[ev[1]]!=None:#DB has this value but object doesnt, so update object
-                    setattr(summary, ev[0], resultDict[ev][1])
+                    setattr(summary, ev[0], resultDict[ev[1]])
                 elif getattr(summary, ev[0])!=None and not resultDict[ev[1]]:#object has this value but DB doesnt, so update DB
                     updateDb=True
                 #elif ev=="startTime":
@@ -3597,10 +3563,11 @@ class Database:
                     summaryAttribute=ev[0]
                     if ev[0]!="winnings" and ev[0]!="winningsCurrency":
                         summaryAttribute+="s"
-
-                    if getattr(summary, summaryAttribute)[player]==None and resultDict[ev[1]]!=None:#DB has this value but object doesnt, so update object
-                        setattr(summary, summaryAttribute, resultDict[ev[1]][player])
-                    elif getattr(summary, summaryAttribute)[player]!=None and resultDict[ev[1]]==None:#object has this value but DB doesnt, so update DB
+                    summaryDict = getattr(summary, summaryAttribute)
+                    if summaryDict[player]==None and resultDict[ev[1]]!=None:#DB has this value but object doesnt, so update object 
+                        summaryDict[player] = resultDict[ev[1]]
+                        setattr(summary, summaryAttribute, summaryDict)
+                    elif summaryDict!=None and resultDict[ev[1]]==None:#object has this value but DB doesnt, so update DB
                         updateDb=True
                 if updateDb:
                     q = self.sql.query['updateTourneysPlayer'].replace('%s', self.sql.query['placeholder'])

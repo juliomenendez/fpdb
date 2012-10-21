@@ -81,6 +81,8 @@ class Site:
             line_addendum = '*'
         elif filter_name == 'Merge':
             line_addendum = '<'
+        elif filter_name == 'Entraction':
+            line_addendum = '\n\n'
             
         return line_addendum
 
@@ -131,14 +133,17 @@ class IdentifySite:
         re_identify['Everest']      = re.compile(u'<SESSION\stime="\d+"\stableName=".+"\sid=')
         re_identify['Cake']         = re.compile(u'Hand\#[A-Z0-9]+\s\-\s')
         re_identify['Entraction']   = re.compile(u'Game\s\#\s\d+\s\-\s')
-        re_identify['BetOnline']    = re.compile(u'BetOnline\sPoker\sGame\s\#\d+')
+        re_identify['BetOnline']    = re.compile(u'(BetOnline\sPoker|PayNoRake|ActionPoker\.com|Gear\sPoker)\sGame\s\#\d+')
         re_identify['PokerTracker'] = re.compile(u'(EverestPoker\sGame\s\#|GAME\s\#|MERGE_GAME\s\#|\*{2}\sGame\sID\s)\d+')
-        re_identify['Microgaming']  = re.compile(u'<Game\sid=\"\d+\"\sdate=\"[\d\-\s:]+\"\sunicodetablename')
+        re_identify['Microgaming']  = re.compile(u'<Game\s(hhversion="\d"\s)?id=\"\d+\"\sdate=\"[\d\-\s:]+\"\sunicodetablename')
+        re_identify['Bovada']       = re.compile(u'(Bovada|Bodog(\sUK|\sCanada)?)\sHand')
+        re_identify['Enet']         = re.compile(u'^Game\s\#\d+:')
         re_identify['FullTiltPokerSummary'] = re.compile(u'Full\sTilt\sPoker\.fr\sTournament|Full\sTilt\sPoker\sTournament\sSummary')
         re_identify['PokerStarsSummary']    = re.compile(u'PokerStars\sTournament\s\#\d+')
         re_identify['PacificPokerSummary']  = re.compile(u'\*{5}\sCassava Tournament Summary\s\*{5}')
         re_identify['MergeSummary']         = re.compile(u"<meta\sname='Creator'\scontent='support@carbonpoker.ag'\s/>")
         re_identify['WinamaxSummary']       = re.compile(u"Winamax\sPoker\s\-\sTournament\ssummary")
+        re_identify['PokerTrackerSummary']  = re.compile(u"PokerTracker")
         return re_identify
 
     def generateSiteList(self, hhcs):
@@ -151,12 +156,8 @@ class IdentifySite:
             summary = hhc.summaryImporter
             result = self.db.get_site_id(site)
             if len(result) == 1:
-                smod, sobj = None, None
                 mod = __import__(filter)
                 obj = getattr(mod, filter_name, None)
-                if summary:
-                    smod = __import__(summary)
-                    sobj = getattr(smod, summary, None)
                 self.sitelist[result[0][0]] = Site(site, filter, filter_name, summary, obj)
 
     def walkDirectory(self, dir, sitelist):
@@ -221,14 +222,23 @@ class IdentifySite:
                     f.ftype = "summary"
                     return f
                 
-        m = self.re_identify['PokerTracker'].search(whole_file)
-        if m:
+        m1 = self.re_identify['PokerTracker'].search(whole_file)
+        m2 = self.re_identify['PokerTrackerSummary'].search(whole_file[:100])
+        if m1 or m2:
             filter = 'PokerTrackerToFpdb'
             filter_name = 'PokerTracker'
             mod = __import__(filter)
             obj = getattr(mod, filter_name, None)
-            f.site = Site('PokerTracker', filter, filter_name, None, obj)
-            f.ftype = "hh"
+            summary = 'PokerTrackerSummary'
+            f.site = Site('PokerTracker', filter, filter_name, summary, obj)
+            if m1:
+                f.ftype = "hh"
+                re_SplitHands = re.compile(u'\*{2}\sGame\sID\s')
+                if re_SplitHands.search( m1.group()):
+                    f.site.line_delimiter = None
+                    f.site.re_SplitHands = re.compile(u'\n\n\n\*{2}\sGame\sID\s')
+            else:
+                f.ftype = "summary"
             return f
         
         return False

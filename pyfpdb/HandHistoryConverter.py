@@ -90,6 +90,7 @@ out_path  (default '-' = sys.stdout)
         self.numHands = 0
         self.numErrors = 0
         self.numPartial = 0
+        self.isCarraige = False
 
         # Tourney object used to store TourneyInfo when called to deal with a Summary file
         self.tourney = None
@@ -123,9 +124,11 @@ HandHistoryConverter: '%(sitename)s'
         if not self.sanityCheck():
             log.warning(_("Failed sanity check"))
             return
-
+        
         self.numHands = 0
+        self.numPartial = 0
         self.numErrors = 0
+        lastParsed = None
         handsList = self.allHandsAsList()
         log.debug( _("Hands list is:") + str(handsList))
         log.info(_("Parsing %d hands") % len(handsList))
@@ -136,12 +139,25 @@ HandHistoryConverter: '%(sitename)s'
             for handText in handsList:
                 try:
                     self.processedHands.append(self.processHand(handText))
+                    lastParsed = 'stored'
                 except FpdbHandPartial, e:
                     self.numPartial += 1
+                    lastParsed = 'partial'
                     log.debug("%s" % e)
                 except FpdbParseError:
                     self.numErrors += 1
+                    lastParsed = 'error'
                     log.error(_("FpdbParseError for file '%s'") % self.in_path)
+            if lastParsed in ('partial', 'error'):
+                self.index -= len(handsList[-1])
+                if self.isCarraige:
+                     self.index -= handsList[-1].count('\n')
+                handsList.pop()
+                if lastParsed=='partial':
+                    self.numPartial -= 1
+                else:
+                    self.numErrors -= 1
+                log.info(_("Removing partially written hand & resetting index"))
             self.numHands = len(handsList)
             endtime = time.time()
             log.info(_("Read %d hands (%d failed) in %.3f seconds") % (self.numHands, (self.numErrors + self.numPartial), endtime - starttime))
@@ -165,8 +181,14 @@ HandHistoryConverter: '%(sitename)s'
         """Return a list of handtexts in the file at self.in_path"""
         #TODO : any need for this to be generator? e.g. stars support can email one huge file of all hands in a year. Better to read bit by bit than all at once.
         self.readFile()
-        self.obs = self.obs.strip()
+        lenobs = len(self.obs)
+        self.obs = self.obs.rstrip()
+        self.index -= (lenobs - len(self.obs))
+        self.obs = self.obs.lstrip()
+        lenobs = len(self.obs)
         self.obs = self.obs.replace('\r\n', '\n')
+        if lenobs != len(self.obs):
+            self.isCarraige = True
         # maybe archive params should be one archive param, then call method in specific converter?
         # if self.archive:
         #     self.obs = self.convert_archive(self.obs)
@@ -178,17 +200,20 @@ HandHistoryConverter: '%(sitename)s'
             # Remove  ******************** # 1 *************************
             m = re.compile('\*{20}\s#\s\d+\s\*{20,25}\s+', re.MULTILINE)
             self.obs = m.sub('', self.obs)
-
+    
         if self.obs is None or self.obs == "":
-            log.error(_("Read no hands from file: '%s'") % self.in_path)
+            log.info(_("Read no hands from file: '%s'") % self.in_path)
             return []
         handlist = re.split(self.re_SplitHands,  self.obs)
         # Some HH formats leave dangling text after the split
         # ie. </game> (split) </session>EOL
         # Remove this dangler if less than 50 characters and warn in the log
         if len(handlist[-1]) <= 50:
+            self.index -= len(handlist[-1])
+            if self.isCarraige:
+                self.index -= handlist[-1].count('\n')
             handlist.pop()
-            log.info(_("Removing text < 50 characters"))
+            log.info(_("Removing text < 50 characters & resetting index"))
         return handlist
 
     def processHand(self, handText):
@@ -377,8 +402,12 @@ or None if we fail to get the info """
     # an inheriting class can calculate it for the specific site if need be.
     def getRake(self, hand):
         hand.rake = hand.totalpot - hand.totalcollected #  * Decimal('0.05') # probably not quite right
-        if hand.rake < 0:
+        round = -1 if hand.gametype['type'] == "tour" else -0.01
+        if hand.rake < 0 and (not hand.roundPenny or hand.rake < round):
             log.error(_("hhc.getRake(): '%s': Amount collected (%s) is greater than the pot (%s)") % (hand.handid,str(hand.totalcollected), str(hand.totalpot)))
+            raise FpdbParseError
+        elif hand.totalpot > 0 and Decimal(hand.totalpot/4) < hand.rake:
+            log.error(_("hhc.getRake(): '%s': Suspiciously high rake (%s) > 25 pct of pot (%s)") % (hand.handid,str(hand.rake), str(hand.totalpot)))
             raise FpdbParseError
 
     def sanityCheck(self):
@@ -544,10 +573,14 @@ or None if we fail to get the info """
             givenTZ = timezone('America/Sao_Paulo')
         elif givenTimezone == 'COT':
             givenTZ = timezone('America/Bogota')
-        elif givenTimezone == 'EET': # Eastern European Time
+        elif givenTimezone in ('EET', 'EEST'): # Eastern European Time
             givenTZ = timezone('Europe/Bucharest')
-        elif (givenTimezone == 'MSK' or givenTimezone == 'MESZ'): # Moscow Standard Time
+        elif givenTimezone in ('MSK', 'MESZ', 'MSKS'): # Moscow Standard Time
             givenTZ = timezone('Europe/Moscow')
+        elif givenTimezone in ('YEKT','YEKST'):
+            givenTZ = timezone('Asia/Yekaterinburg')
+        elif givenTimezone in ('KRAT','KRAST'):
+            givenTZ = timezone('Asia/Krasnoyarsk')
         elif givenTimezone == 'IST': # India Standard Time
             givenTZ = timezone('Asia/Kolkata')
         elif givenTimezone == 'CCT': # China Coast Time
@@ -568,9 +601,10 @@ or None if we fail to get the info """
             givenTZ = timezone('Pacific/Auckland')
 
         if givenTZ is None:
-            # do not crash if timezone not in list, just return unconverted time
+            # do not crash if timezone not in list, just return UTC localized time
             log.warn(_("Timezone conversion not supported") + ": " + givenTimezone + " " + str(time))
-            return time
+            givenTZ = pytz.UTC
+            return givenTZ.localize(time)
 
         localisedTime = givenTZ.localize(time)
         utcTime = localisedTime.astimezone(wantedTimezone) + datetime.timedelta(seconds=-3600*(offset/100)-60*(offset%100))
@@ -601,10 +635,13 @@ or None if we fail to get the info """
         if not money:
             return money
         money = money.replace(' ', '')
+        money = money.replace(u'\xa0', u'')
         if 'K' in money:
             money = money.replace('K', '000')
         if 'M' in money:
             money = money.replace('M', '000000')
+        if money[-1] in ('.', ','):
+            money = money[:-1]
         if len(money) < 3:
             return money # No commas until 0,01 or 1,00
         if money[-3] == ',':

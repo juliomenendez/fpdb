@@ -32,7 +32,7 @@ from HandHistoryConverter import *
 
 class PartyPoker(HandHistoryConverter):
     sitename = "PartyPoker"
-    codepage = "utf8"
+    codepage = ("utf8", "cp1252")
     siteId = 9
     filetype = "text"
     sym        = {'USD': "\$", 'EUR': u"\u20ac", 'T$': ""}
@@ -49,6 +49,7 @@ class PartyPoker(HandHistoryConverter):
                      'Omaha Hi-Lo' : ('hold','omahahilo'),
                "7 Card Stud Hi-Lo" : ('stud','studhilo'),
                      "7 Card Stud" : ('stud','studhi'),
+                  "Double Hold'em" : ('hold','2_holdem'),
             }
 
     Lim_Blinds = {  '0.04': ('0.01', '0.02'),        '0.08': ('0.02', '0.04'),
@@ -94,7 +95,7 @@ class PartyPoker(HandHistoryConverter):
              ((?P<CASHBI>[%(NUM)s]+)\s(?:%(LEGAL_ISO)s)?\s*)(?P<LIMIT2>(NL|PL|FL|))?\s*
             )
             (Tourney\s*)?
-            (?P<GAME>(Texas\sHold\'em|Omaha\sHi-Lo|Omaha|7\sCard\sStud\sHi-Lo|7\sCard\sStud))\s*
+            (?P<GAME>(Texas\sHold\'em|Omaha\sHi-Lo|Omaha|7\sCard\sStud\sHi-Lo|7\sCard\sStud|Double\sHold\'em))\s*
             (Game\sTable\s*)?
             (
              (\((?P<LIMIT>(NL|PL|FL|))\)\s*)?
@@ -115,8 +116,8 @@ class PartyPoker(HandHistoryConverter):
 
     re_GameInfoTrny     = re.compile("""
             \*{5}\sHand\sHistory\s(F|f)or\sGame\s(?P<HID>\d+)\s\*{5}\s+
-            (?P<LIMIT>(NL|PL|))\s*
-            (?P<GAME>(Texas\ Hold\'em|Omaha))\s+
+            (?P<LIMIT>(NL|PL|FL|))\s*
+            (?P<GAME>(Texas\sHold\'em|Omaha\sHi-Lo|Omaha|7\sCard\sStud\sHi-Lo|7\sCard\sStud|Double\sHold\'em))\s+
             (?:(?P<BUYIN>[%(LS)s]?[%(NUM)s]+)\s*(?P<BUYIN_CURRENCY>%(LEGAL_ISO)s)?\s*Buy-in\s+)?
             Trny:\s?(?P<TOURNO>\d+)\s+
             Level:\s*(?P<LEVEL>\d+)\s+
@@ -148,6 +149,7 @@ class PartyPoker(HandHistoryConverter):
     re_20BBmin       = re.compile(r"Table 20BB Min")
     re_Cancelled     = re.compile('Table\sClosed\s?', re.MULTILINE)
     re_Disconnected  = re.compile('Connection\sLost\sdue\sto\ssome\sreason\s?', re.MULTILINE)
+    re_GameStartLine = re.compile('Game\s\#\d+\sstarts', re.MULTILINE)
 
     def allHandsAsList(self):
         list = HandHistoryConverter.allHandsAsList(self)
@@ -181,9 +183,9 @@ class PartyPoker(HandHistoryConverter):
                 r"^Dealt to %(PLYR)s \[\s*(?P<NEWCARDS>.+)\s*\]" % subst,
                 re.MULTILINE)
             self.re_Action = re.compile(u"""
-                ^%(PLYR)s\s+(?P<ATYPE>bets|checks|raises|completes|bring-ins|calls|folds|is\sall-In)
+                ^%(PLYR)s\s+(?P<ATYPE>bets|checks|raises|completes|bring-ins|calls|folds|is\sall-In|double\sbets)
                 (?:\s+[%(BRAX)s]?%(CUR_SYM)s?(?P<BET>[.,\d]+)\s*(%(CUR)s)?[%(BRAX)s]?)?
-                """ %  subst, re.MULTILINE|re.VERBOSE)
+                \.?\s*$""" %  subst, re.MULTILINE|re.VERBOSE)
             self.re_ShownCards = re.compile(
                 r"^%s (?P<SHOWED>(?:doesn\'t )?shows?) "  %  player_re +
                 r"\[ *(?P<CARDS>.+) *\](?P<COMBINATION>.+)\.",
@@ -202,9 +204,12 @@ class PartyPoker(HandHistoryConverter):
                 ["tour", "hold", "nl"],
                 ["tour", "hold", "pl"],
                 ["tour", "hold", "fl"],
+                
+                ["tour", "stud", "fl"],
                ]
 
     def determineGameType(self, handText):
+        handText = handText.replace(u'\x00', u'')
         info = {}
         m = self.re_GameInfo.search(handText)
         if not m:
@@ -217,6 +222,10 @@ class PartyPoker(HandHistoryConverter):
             m = self.re_Cancelled.search(handText)
             if m:
                 message = _("Table Closed")
+                raise FpdbHandPartial("Partial hand history: %s" % message)
+            m = self.re_GameStartLine.match(handText)
+            if m and len(handText)<50:
+                message = _("Game start line")
                 raise FpdbHandPartial("Partial hand history: %s" % message)
             tmp = handText[0:200]
             log.error(_("PartyPokerToFpdb.determineGameType: '%s'") % tmp)
@@ -290,8 +299,8 @@ class PartyPoker(HandHistoryConverter):
 
 
     def readHandInfo(self, hand):
-        info = {}
-        m2 = None
+        info, m2 = {}, None
+        hand.handText = hand.handText.replace(u'\x00', u'')
         m  = self.re_HandInfo.search(hand.handText,re.DOTALL)
         if hand.gametype['type'] == 'ring':
             m2 = self.re_GameInfo.search(hand.handText)
@@ -373,6 +382,12 @@ class PartyPoker(HandHistoryConverter):
                 hand.gametype['currency'] = 'play'
             if key == 'MAX' and info[key] is not None:
                 hand.maxseats = int(info[key])
+        
+        enetStart = datetime.datetime.strptime('20120101000000','%Y%m%d%H%M%S')
+        enetStart = HandHistoryConverter.changeTimezone(enetStart, "ET", "UTC")    
+        if hand.startTime > enetStart and len(hand.handid)<10:
+            message = _("Converted Enet Hand")
+            raise FpdbHandPartial("Partial hand history: %s" % message)
 
 
     def readButton(self, hand):
@@ -399,23 +414,26 @@ class PartyPoker(HandHistoryConverter):
             #finds first vacant seat after an exact seat
             def findFirstEmptySeat(startSeat):
                 while startSeat in occupiedSeats:
-                    if startSeat >= hand.maxseats and hand.maxseats!=None:
+                    if (startSeat >= hand.maxseats and hand.maxseats!=None) or len(occupiedSeats)>=hand.maxseats:
                         startSeat = 0
                     startSeat += 1
                 return startSeat
 
             re_JoiningPlayers = re.compile(r"(?P<PLAYERNAME>.*) has joined the table")
             re_BBPostingPlayers = re.compile(r"(?P<PLAYERNAME>.*) posts big blind")
+            re_LeavingPlayers = re.compile(r"(?P<PLAYERNAME>.*) has left the table")
 
             match_JoiningPlayers = re_JoiningPlayers.findall(hand.handText)
             match_BBPostingPlayers = re_BBPostingPlayers.findall(hand.handText)
+            match_LeavingPlayers = re_LeavingPlayers.findall(hand.handText)
 
             #add every player with zero stack, but:
             #if a zero stacked player is just joined the table in this very hand then set his stack to maxKnownStack
             for p in zeroStackPlayers:
                 if p[1] in match_JoiningPlayers:
                     p[2] = self.clearMoneyString(maxKnownStack)
-                hand.addPlayer(p[0],p[1],p[2])
+                if not p[1] in match_LeavingPlayers:
+                    hand.addPlayer(p[0],p[1],p[2])
 
             seatedPlayers = list([(f[1]) for f in hand.players])
 
@@ -490,7 +508,7 @@ class PartyPoker(HandHistoryConverter):
                 self.readButton(hand)
             # NOTE: code below depends on Hand's implementation
             # playersMap - dict {seat: (pname,stack)}
-            playersMap = dict([(f[0], f[1:3]) for f in hand.players if f[1] in hand.handText.split('Trny:')[1]])
+            playersMap = dict([(f[0], f[1:3]) for f in hand.players if f[1] in hand.handText.split('Trny:')[-1]])
             maxSeat = max(playersMap)
 
             def findFirstNonEmptySeat(startSeat):
@@ -532,7 +550,26 @@ class PartyPoker(HandHistoryConverter):
                     hand.hero = found.group('PNAME')
                     newcards = renderCards(found.group('NEWCARDS'))
                     hand.addHoleCards(street, hand.hero, closed=newcards, shown=False, mucked=False, dealt=True)
+                    
+        for street, text in hand.streets.iteritems():
+            if not text or street in ('PREFLOP', 'DEAL'): continue  # already done these
+            m = self.re_HeroCards.finditer(hand.streets[street])
+            for found in m:
+                player = found.group('PNAME')
+                if street != 'SEVENTH':
+                    newcards = renderCards(found.group('NEWCARDS'))
+                    oldcards = []
+                else:
+                    oldcards = renderCards(found.group('NEWCARDS'))
+                    newcards = []
 
+                if street == 'THIRD' and len(newcards) == 3: # hero in stud game
+                    hand.hero = player
+                    hand.dealt.add(player) # need this for stud??
+                    hand.addHoleCards(street, player, closed=newcards[0:2], open=[newcards[2]], shown=False, mucked=False, dealt=False)
+                else:
+                    hand.addHoleCards(street, player, open=newcards, closed=oldcards, shown=False, mucked=False, dealt=False)
+                    
     def readAction(self, hand, street):
         m = self.re_Action.finditer(hand.streets[street])
         for action in m:
@@ -555,7 +592,7 @@ class PartyPoker(HandHistoryConverter):
                     hand.addCallandRaise( street, playerName, amount )
                 else:
                     hand.addCallandRaise( street, playerName, amount )
-            elif actionType == 'bets':
+            elif actionType == 'bets' or actionType ==  'double bets':
                 hand.addBet( street, playerName, amount )
             elif actionType == 'completes':
                 hand.addComplete( street, playerName, amount )
@@ -583,7 +620,7 @@ class PartyPoker(HandHistoryConverter):
 
                 mucked = m.group('SHOWED') != "show"
 
-                hand.addShownCards(cards=cards, player=m.group('PNAME'), shown=True, mucked=mucked)
+                hand.addShownCards(cards=cards, player=m.group('PNAME'), shown=True, mucked=mucked, string=m.group('COMBINATION'))
 
     @staticmethod
     def getTableTitleRe(type, table_name=None, tournament = None, table_number=None):

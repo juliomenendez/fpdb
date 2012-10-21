@@ -43,7 +43,7 @@ class OnGame(HandHistoryConverter):
                             'LS' : u"\$|\xe2\x82\xac|\u20ac|",     # Currency symbols - Euro(cp1252, utf-8)
                            'PLYR': r'(?P<PNAME>.+?)',
                             'CUR': u"(\$|\xe2\x82\xac|\u20ac||\£|)",
-                           'NUM' : u".,\d",
+                           'NUM' : u".,\dKM",
                     }
     
     Lim_Blinds = {      '0.04': ('0.01', '0.02'),    '0.10': ('0.02', '0.05'),      
@@ -53,10 +53,16 @@ class OnGame(HandHistoryConverter):
                         '2.00': ('0.50', '1.00'),       '2': ('0.50', '1.00'),
                         '4.00': ('1.00', '2.00'),       '4': ('1.00', '2.00'),
                         '6.00': ('1.50', '3.00'),       '6': ('1.50', '3.00'),
+                        '8.00': ('2.00', '4.00'),       '8': ('2.00', '4.00'),
                        '10.00': ('2.50', '5.00'),      '10': ('2.50', '5.00'),
+                       '12.00': ('3.00', '6.00'),      '12': ('3.00', '6.00'),
                        '20.00': ('5.00', '10.00'),     '20': ('5.00', '10.00'),
                        '30.00': ('7.50', '15.00'),     '30': ('7.50', '15.00'),
+                       '40.00': ('10.00', '20.00'),    '40': ('10.00', '20.00'),
                        '50.00': ('12.50', '25.00'),    '50': ('12.50', '25.00'),
+                      '100.00': ('25.00', '50.00'),   '100': ('25.00', '50.00'),
+                      '200.00': ('50.00', '100.00'),  '200': ('50.00', '100.00'),
+                      '500.00': ('125.00', '250.00'), '500': ('125.00', '250.00'),
                   }
     
     currencies = { u'\u20ac':'EUR', u'\xe2\x82\xac':'EUR', '$':'USD', '':'T$' }
@@ -66,9 +72,8 @@ class OnGame(HandHistoryConverter):
     games = {                          # base, category
                           "TEXAS_HOLDEM" : ('hold','holdem'),
                               'OMAHA_HI' : ('hold','omahahi'),
-             #             'Omaha Hi/Lo' : ('hold','omahahilo'),
-             #                    'Razz' : ('stud','razz'),
-             #                    'RAZZ' : ('stud','razz'),
+                           'OMAHA_HI_LO' : ('hold','omahahilo'),
+                                  'RAZZ' : ('stud','razz'),
                        'SEVEN_CARD_STUD' : ('stud','studhi'),
                  'SEVEN_CARD_STUD_HI_LO' : ('stud','studhilo'),
              #                  'Badugi' : ('draw','badugi'),
@@ -89,14 +94,16 @@ class OnGame(HandHistoryConverter):
             Table:\s(\[SPEED\]\s)?(?P<TABLE>.+?)\s\[\d+\]\s\( 
             (
             (?P<LIMIT>NO_LIMIT|Limit|LIMIT|Pot\sLimit|POT_LIMIT)\s
-            (?P<GAME>TEXAS_HOLDEM|OMAHA_HI|SEVEN_CARD_STUD|SEVEN_CARD_STUD_HI_LO|RAZZ|FIVE_CARD_DRAW)\s
-            (?P<CURRENCY>%(LS)s|)?(?P<SB>[%(NUM)s]+)/(%(LS)s)?(?P<BB>[%(NUM)s]+)
-            )?
+            (?P<GAME>TEXAS_HOLDEM|OMAHA_HI|OMAHA_HI_LO|SEVEN_CARD_STUD|SEVEN_CARD_STUD_HI_LO|RAZZ|FIVE_CARD_DRAW)\s
+            (?P<CURRENCY>%(LS)s|)?(?P<SB>[%(NUM)s]+)/(%(LS)s)?(?P<BB>[%(NUM)s]+),\s(ante:\s(%(LS)s)?[%(NUM)s]+,\s)?
+            (?P<MONEY>Play\smoney|Real\smoney|TC|Chips)?\)
+            )
             """ % substitutions, re.MULTILINE|re.DOTALL|re.VERBOSE)
 
     re_TailSplitHands = re.compile(u'(\*\*\*\*\*\sEnd\sof\shand\s[-A-Z\d]+.*\n)(?=\*)')
     re_Button       = re.compile('Button: seat (?P<BUTTON>\d+)', re.MULTILINE)  # Button: seat 2
     re_Board        = re.compile(r"\[(?P<CARDS>.+)\]")
+    re_Max          = re.compile(r"Players\sin\sround:\s\d+\s\((?P<MAX>\d+)\)")
 
     # Wed Aug 18 19:45:30 GMT+0100 2010
     re_DateTime = re.compile("""
@@ -127,15 +134,15 @@ class OnGame(HandHistoryConverter):
             #helander2222 posts blind ($0.25), lopllopl posts blind ($0.50).
             #player_re = "(?P<PNAME>" + "|".join(map(re.escape, players)) + ")"
             #subst = {'PLYR': player_re, 'CUR': self.sym[hand.gametype['currency']]}
-            self.re_PostSB    = re.compile('%(PLYR)s posts small blind \((%(CUR)s)?(?P<SB>[\.0-9]+)\)' % self.substitutions, re.MULTILINE)
-            self.re_PostBB    = re.compile('%(PLYR)s posts big blind \((%(CUR)s)?(?P<BB>[\.0-9]+)\)' % self.substitutions, re.MULTILINE)
-            self.re_Antes     = re.compile(r"^%(PLYR)s posts ante (%(CUR)s)?(?P<ANTE>[\.0-9]+)" % self.substitutions, re.MULTILINE)
-            self.re_BringIn   = re.compile(r"^%(PLYR)s brings[- ]in( low|) for (%(CUR)s)?(?P<BRINGIN>[\.0-9]+)" % self.substitutions, re.MULTILINE)
-            self.re_PostBoth  = re.compile('%(PLYR)s posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[\.0-9]+)\)' % self.substitutions)
-            self.re_PostDead  = re.compile('%(PLYR)s posts dead blind \((%(CUR)s)?(?P<DEAD>[\.0-9]+)\)' % self.substitutions, re.MULTILINE)
+            self.re_PostSB    = re.compile('%(PLYR)s posts small blind \((%(CUR)s)?(?P<SB>[%(NUM)s]+)\)' % self.substitutions, re.MULTILINE)
+            self.re_PostBB    = re.compile('%(PLYR)s posts big blind \((%(CUR)s)?(?P<BB>[%(NUM)s]+)\)' % self.substitutions, re.MULTILINE)
+            self.re_Antes     = re.compile(r"^%(PLYR)s posts ante (%(CUR)s)?(?P<ANTE>[%(NUM)s]+)" % self.substitutions, re.MULTILINE)
+            self.re_BringIn   = re.compile(r"^%(PLYR)s small bring in (%(CUR)s)?(?P<BRINGIN>[%(NUM)s]+)" % self.substitutions, re.MULTILINE)
+            self.re_PostBoth  = re.compile('%(PLYR)s posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[%(NUM)s]+)\)' % self.substitutions)
+            self.re_PostDead  = re.compile('%(PLYR)s posts dead blind \((%(CUR)s)?(?P<DEAD>[%(NUM)s]+)\)' % self.substitutions, re.MULTILINE)
             self.re_HeroCards = re.compile('(New\shand\sfor|Dealing\sto)\s%(PLYR)s:\s\[(?P<CARDS>.*)\]' % self.substitutions)
 
-            self.re_Action = re.compile('(, )?%(PLYR)s(?P<ATYPE> bets| checks| raises| calls| folds| changed)( (%(CUR)s)?(?P<BET>[\d\.]+))?( to (%(CUR)s)?(?P<BET2>[\d\.]+))?( and is all-in)?' % self.substitutions)
+            self.re_Action = re.compile('(, )?%(PLYR)s(?P<ATYPE> bets| checks| raises| calls| folds| changed)( (%(CUR)s)?(?P<BET>[%(NUM)s]+))?( to (%(CUR)s)?(?P<BET2>[%(NUM)s]+))?( and is all-in)?' % self.substitutions)
             #self.re_Board = re.compile(r"\[board cards (?P<CARDS>.+) \]")
 
             #Uchilka shows [ KC,JD ]
@@ -144,8 +151,8 @@ class OnGame(HandHistoryConverter):
             #Main pot: $3.57 won by mleo17 ($3.40)
             #Side pot 1: $3.26 won by maac_5 ($3.10)
             #Main pot: $2.87 won by maac_5 ($1.37), sagi34 ($1.36)
-            self.re_Pot = re.compile('(Main|Side)\spot(\s\d+)?:\s.*won\sby\s(?P<POT>.*$)', re.MULTILINE)
-            self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\s\((%(CUR)s)?(?P<POT>[\.\d]+)\)' % self.substitutions)
+            self.re_Pot = re.compile('(Main|Side)\spot(\s\d+)?:\s.*won\sby(?P<POT>.*$)', re.MULTILINE)
+            self.re_CollectPot = re.compile('\s(?P<PNAME>.+?)\s\((%(CUR)s)?(?P<POT>[%(NUM)s]+)\)' % self.substitutions)
             #Seat 5: mleo17 ($3.40), net: +$2.57, [Jd, Qd] (TWO_PAIR QUEEN, JACK)
             self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): (?P<PNAME>.*) \(.*\), net:.* \[(?P<CARDS>.*)\].*" % self.substitutions, re.MULTILINE)
             self.re_sitsOut    = re.compile('%(PLYR)s sits out' % self.substitutions, re.MULTILINE)
@@ -176,7 +183,6 @@ class OnGame(HandHistoryConverter):
         # Inspect the handText and return the gametype dict
         # gametype dict is: {'limitType': xxx, 'base': xxx, 'category': xxx}
         info = {}
-
         m = self.re_HandInfo.search(handText)
         if not m:
             tmp = handText[0:200]
@@ -190,8 +196,11 @@ class OnGame(HandHistoryConverter):
         if mg['TID'] != None:
             info['type'] = 'tour'
 
-        if 'CURRENCY' in mg:
-            info['currency'] = self.currencies[mg['CURRENCY']]
+        if 'CURRENCY' in mg and mg['CURRENCY'] != None:
+            if 'MONEY' in mg and mg['MONEY']=='Play money':
+                info['currency'] = 'play'
+            else:
+                info['currency'] = self.currencies[mg['CURRENCY']]
 
         if 'LIMIT' in mg:
             if mg['LIMIT'] in self.limits:
@@ -232,6 +241,9 @@ class OnGame(HandHistoryConverter):
             raise FpdbParseError
 
         info.update(m.groupdict())
+        m2 =  self.re_Max.search(hand.handText)
+        if m2 is not None:
+            info.update(m2.groupdict())
         #log.debug("readHandInfo: %s" % info)
         for key in info:
             if key == 'DATETIME':
@@ -283,11 +295,10 @@ class OnGame(HandHistoryConverter):
                     hand.buyinCurrency = 'NA'
             if key == 'TABLE':
                 hand.tablename = info[key]
-
-        # TODO: These
-        hand.buttonpos = 1
-        hand.maxseats = None    # Set to None - Hand.py will guessMaxSeats()
-        hand.mixed = None
+            if key == 'MAX':
+                hand.maxseats = int(info[key])
+            if key == 'BUTTON':
+                hand.buttonpos = info[key]
 
     def readPlayerStacks(self, hand):
         #log.debug("readplayerstacks: re is '%s'" % self.re_PlayerInfo)
@@ -411,20 +422,22 @@ class OnGame(HandHistoryConverter):
         for action in m:
             #acts = action.groupdict()
             #print "readaction: acts: %s" %acts
+            bet = self.clearMoneyString(action.group('BET')) if action.group('BET') else None
+            bet2 = self.clearMoneyString(action.group('BET2')) if action.group('BET2') else None
             
             if action.group('ATYPE') == ' folds':
                 hand.addFold( street, action.group('PNAME'))
             elif action.group('ATYPE') == ' checks':
                 hand.addCheck( street, action.group('PNAME'))
             elif action.group('ATYPE') == ' calls':
-                hand.addCall( street, action.group('PNAME'), action.group('BET') )
+                hand.addCall( street, action.group('PNAME'), bet )
             elif action.group('ATYPE') == ' raises':
-                hand.addRaiseTo( street, action.group('PNAME'), action.group('BET2') )
+                hand.addRaiseTo( street, action.group('PNAME'), bet2 )
             elif action.group('ATYPE') == ' bets':
-                hand.addBet( street, action.group('PNAME'), action.group('BET') )
+                hand.addBet( street, action.group('PNAME'), bet )
             elif action.group('ATYPE') == ' changed':
                 if int(action.group('BET'))>0:
-                    hand.addDiscard(street, action.group('PNAME'), action.group('BET'))
+                    hand.addDiscard(street, action.group('PNAME'), bet)
                 else:
                     hand.addStandsPat( street, action.group('PNAME'))
             else:
@@ -438,9 +451,8 @@ class OnGame(HandHistoryConverter):
 
     def readCollectPot(self,hand):
         for m in self.re_Pot.finditer(hand.handText):
-            for splitpot in m.group('POT').split(','):
-                for m in self.re_CollectPot.finditer(splitpot):
-                    hand.addCollectPot(player=m.group('PNAME'),pot=m.group('POT'))
+            for m in self.re_CollectPot.finditer(m.group('POT')):
+                hand.addCollectPot(player=m.group('PNAME'),pot=self.clearMoneyString(m.group('POT')))
 
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):

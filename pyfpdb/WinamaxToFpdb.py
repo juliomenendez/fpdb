@@ -47,7 +47,7 @@ class Winamax(HandHistoryConverter):
     siteId   = 15 # Needs to match id entry in Sites database
 
     mixes = { } # Legal mixed games
-    sym = {'USD': "\$", 'CAD': "\$", 'T$': "", "EUR": u"\xe2\x82\xac|\u20ac", "GBP": "\xa3"}         # ADD Euro, Sterling, etc HERE
+    sym = {'USD': "\$", 'CAD': "\$", 'T$': "", "EUR": u"\xe2\x82\xac|\u20ac", "GBP": "\xa3", "play": ""}         # ADD Euro, Sterling, etc HERE
     substitutions = {
                      'LEGAL_ISO' : "USD|EUR|GBP|CAD|FPP",     # legal ISO currency codes
                             'LS' : u"\$|\xe2\x82\xac|\u20ac|" # legal currency symbols - Euro(cp1252, utf-8)
@@ -74,7 +74,7 @@ class Winamax(HandHistoryConverter):
             (?P<RING>CashGame)?
             (?P<TOUR>Tournament\s
             (?P<TOURNAME>.+)?\s
-            buyIn:\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\,]+)?\s\+?\s(?P<BIRAKE>[%(LS)s\d\,]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|Freeroll|Gratuit|Ticket\suniquement|Free)?\s
+            buyIn:\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\,.]+)?(\s\+?\s|-)(?P<BIRAKE>[%(LS)s\d\,.]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|Freeroll|Gratuit|Ticket\suniquement|Free|Ticket)?\s
             (level:\s(?P<LEVEL>\d+))?
             .*)?
             \s-\sHandId:\s\#(?P<HID1>\d+)-(?P<HID2>\d+)-(?P<HID3>\d+).*\s  # REB says: HID3 is the correct hand number
@@ -90,6 +90,7 @@ class Winamax(HandHistoryConverter):
             (.(?P<TOURNO>\d+).\#(?P<TABLENO>\d+))?.*
             \'
             \s(?P<MAXPLAYER>\d+)\-max
+            \s(?P<MONEY>\(real\smoney\))?
             """ % substitutions, re.MULTILINE|re.DOTALL|re.VERBOSE)
 
     re_TailSplitHands = re.compile(r'\n\s*\n')
@@ -166,8 +167,11 @@ class Winamax(HandHistoryConverter):
             info['type'] = 'tour'
         elif mg.get('RING'):
             info['type'] = 'ring'
-
-        info['currency'] = 'EUR'
+        
+        if mg.get('MONEY'):
+            info['currency'] = 'EUR'
+        else:
+            info['currency'] = 'play'
 
         if 'LIMIT' in mg:
             if mg['LIMIT'] in self.limits:
@@ -214,10 +218,9 @@ class Winamax(HandHistoryConverter):
                 hand.startTime = datetime.datetime.strptime(datetimestr, "%Y/%m/%d %H:%M:%S")
             if key == 'HID1':
                 # Need to remove non-alphanumerics for MySQL
-#                hand.handid = "1%.9d%s%s"%(int(info['HID2']),info['HID1'],info['HID3'])
-                hand.handid = "%s%s%s"%(int(info['HID1']),info['HID2'],info['HID3'])
-                if len (hand.handid) > 19:
-                    hand.handid = "%s%s" % (int(info['HID2']), int(info['HID3']))
+                # Concatenating all three or just HID2 + HID3 can produce out of range values
+                # HID should not be greater than 14 characters to ensure this
+                hand.handid = "%s%s" % (int(info['HID1'][:14]), int(info['HID2']))
                     
 #            if key == 'HID3':
 #                hand.handid = int(info['HID3'])   # correct hand no (REB)
@@ -227,6 +230,7 @@ class Winamax(HandHistoryConverter):
                 hand.tablename = info[key]
                 if hand.gametype['type'] == 'tour':
                     hand.tablename = info['TABLENO']
+                    hand.roundPenny = True
                 # TODO: long-term solution for table naming on Winamax.
                 if hand.tablename.endswith(u'No Limit Hold\'em'):
                     hand.tablename = hand.tablename[:-len(u'No Limit Hold\'em')] + u'NLHE'
@@ -243,7 +247,7 @@ class Winamax(HandHistoryConverter):
                         if k in info.keys() and info[k]:
                             info[k] = info[k].replace(',','.')
 
-                    if info[key] == 'Gratuit' or info[key] == 'Freeroll' or info[key] == 'Ticket uniquement':
+                    if info[key] in ('Gratuit', 'Freeroll', 'Ticket uniquement', 'Ticket'):
                         hand.buyin = 0
                         hand.fee = 0
                         hand.buyinCurrency = "FREE"
@@ -256,6 +260,8 @@ class Winamax(HandHistoryConverter):
                             hand.buyinCurrency="WIFP"
                         elif info[key].find("Free")!=-1:
                             hand.buyinCurrency="WIFP"
+                        elif info['MONEY']:
+                            hand.buyinCurrency="EUR"
                         else:
                             hand.buyinCurrency="play"
 
@@ -352,6 +358,8 @@ class Winamax(HandHistoryConverter):
             #hand.addBlind(None, None, None)
         for a in self.re_PostBB.finditer(hand.handText):
             hand.addBlind(a.group('PNAME'), 'big blind', a.group('BB'))
+            amount = Decimal(a.group('BB').replace(u',', u''))
+            hand.lastBet['PREFLOP'] = amount
         for a in self.re_PostDead.finditer(hand.handText):
             #print "DEBUG: Found dead blind: addBlind(%s, 'secondsb', %s)" %(a.group('PNAME'), a.group('DEAD'))
             hand.addBlind(a.group('PNAME'), 'secondsb', a.group('DEAD'))
@@ -382,7 +390,7 @@ class Winamax(HandHistoryConverter):
             for found in m:
                 hand.hero = found.group('PNAME')
                 newcards = found.group('CARDS').split(' ')
-#                print "DEBUG: addHoleCards(%s, %s, %s)" %(street, hand.hero, newcards)
+#                print "DEBUG: %s addHoleCards(%s, %s, %s)" %(hand.handid, street, hand.hero, newcards)
                 hand.addHoleCards(street, hand.hero, closed=newcards, shown=False, mucked=False, dealt=True)
                 log.debug(_("Hero cards %s: %s") % (hand.hero, newcards))
 
@@ -400,7 +408,10 @@ class Winamax(HandHistoryConverter):
             elif action.group('ATYPE') == ' raises':
                 hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' bets':
-                hand.addBet( street, action.group('PNAME'), action.group('BET') )
+                if street in ('PREFLOP', 'DEAL', 'BLINDSANTES'):
+                    hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
+                else:
+                    hand.addBet( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' discards':
                 hand.addDiscard(street, action.group('PNAME'), action.group('BET'), action.group('DISCARDED'))
             elif action.group('ATYPE') == ' stands pat':
@@ -419,53 +430,9 @@ class Winamax(HandHistoryConverter):
             hand.addShownCards(cards, shows.group('PNAME'))
 
     def readCollectPot(self,hand):
-        # Winamax has unfortunately thinks that a sidepot is created
-        # when there is uncalled money in the pot - something that can
-        # only happen when a player is all-in
-
-        # Becuase of this, we need to do the same calculations as class Pot()
-        # and determine if the amount returned is the same as the amount collected
-        # if so then the collected line is invalid
-
-        total = sum(hand.pot.committed.values()) + sum(hand.pot.common.values())
-
-        # Return any uncalled bet.
-        committed = sorted([ (v,k) for (k,v) in hand.pot.committed.items()])
-        #print "DEBUG: committed: %s" % committed
-        returned = {}
-        lastbet = committed[-1][0] - committed[-2][0]
-        if lastbet > 0: # uncalled
-            returnto = committed[-1][1]
-            #print "DEBUG: returning %f to %s" % (lastbet, returnto)
-            total -= lastbet
-            returned[returnto] = lastbet
-
-        collectees = []
-
-        tp = self.re_Total.search(hand.handText)
-        rake = tp.group('RAKE')
-        if rake == None:
-            rake = 0
+        hand.setUncalledBets(True)
         for m in self.re_CollectPot.finditer(hand.handText):
-            collectees.append([m.group('PNAME'), m.group('POT')])
-
-        #print "DEBUG: Total pot: %s" % tp.groupdict()
-        #print "DEBUG: According to pot: %s" % total
-        #print "DEBUG: Rake: %s" % rake
-
-        if len(collectees) == 1:
-            plyr, p = collectees[0]
-            # p may be wrong, use calculated total - rake
-            p = total - Decimal(rake)
-            #print "DEBUG: len1: addCollectPot(%s,%s)" %(plyr, p)
-            hand.addCollectPot(player=plyr,pot=p)
-        else:
-            for plyr, p in collectees:
-                if plyr in returned.keys():
-                    p = Decimal(p) - returned[plyr]
-                if p > 0:
-                    #print "DEBUG: addCollectPot(%s,%s)" %(plyr, p)
-                    hand.addCollectPot(player=plyr,pot=p)
+            hand.addCollectPot(player=m.group('PNAME'), pot=m.group('POT'))
 
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):

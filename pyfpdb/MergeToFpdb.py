@@ -87,21 +87,29 @@ class Merge(HandHistoryConverter):
                       '100.00': ('25.00', '50.00'),   '100': ('25.00', '50.00'),
                   }
 
-    Multigametypes = {  '2': ('hold','holdem'),
+    Multigametypes = {  '1': ('hold','holdem'),
+                        '2': ('hold','holdem'),
                         '4': ('hold','omahahi'),
                         '9': ('hold', 'holdem'),
                         '23': ('hold', 'holdem'),
+                        '34': ('hold','omahahilo'),
                         '35': ('hold','omahahilo'),
                         '37': ('hold','omahahilo'),
+                        '38': ('stud','studhi'),
                         '39': ('stud','studhi'),
                         '41': ('stud','studhi'),
+                        '42': ('stud','studhi'),
                         '43': ('stud','studhilo'),
                         '45': ('stud','studhilo'),
+                        '46': ('stud','razz'),
                         '47': ('stud','razz'),
                         '49': ('stud','razz')
                   }    
 
     SnG_Structures = {  '$1 NL Holdem Double Up - 10 Handed'    : {'buyIn': 1,   'fee': 0.08, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (2,2,2,2,2)},
+                        '$1 PL Omaha Double Up - 10 Handed'     : {'buyIn': 1,   'fee': 0.08, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (2,2,2,2,2)},
+                        '$10 Bounty SnG - 6 Handed'             : {'buyIn': 5,   'fee': 1,    'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
+                        '$10 Bounty SnG - 9 Handed'             : {'buyIn': 5,   'fee': 1,    'currency': 'USD', 'seats': 9, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (22.5, 13.5, 9)},
                         '$10 Bounty SnG - 10 Handed'            : {'buyIn': 5,   'fee': 1,    'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
                         '$10 NL Holdem Double Up - 10 Handed'   : {'buyIn': 10,  'fee': 0.8,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (20,20,20,20,20)},
                         '$10 PL Omaha Double Up - 10 Handed'    : {'buyIn': 10,  'fee': 0.8,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (20,20,20,20,20)},
@@ -110,31 +118,56 @@ class Merge(HandHistoryConverter):
                         '$100 NL Holdem Double Up - 10 Handed'  : {'buyIn': 100, 'fee': 8,    'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (200,200,200,200,200)},
                         '$100 PL Omaha Double Up - 10 Handed'   : {'buyIn': 100, 'fee': 8,    'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (200,200,200,200,200)},
                         '$100,000 Guaranteed - Super Turbo Satellite' : {'buyIn': 38.8, 'fee': 0.8, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (109,109,11,3.8)},
-                        '$10 Bounty SnG - 6 Handed'             : {'buyIn': 5, '  fee': 1,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
+                        '$10 Bounty SnG - 6 Handed'             : {'buyIn': 5, 'fee': 1,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
                         '$10 Satellite'                         : {'buyIn': 10,  'fee': 1,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (60,)},
                         '$100 Bounty SnG - 6 Handed'            : {'buyIn': 100, 'fee': 9,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (315, 135)},
+                        '$11 Coupon - Super Turbo Satellite'    : {'buyIn': 1.84,  'fee': 0.05,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (11,0.04)},
                         '$2 Bounty SnG - 10 Handed'             : {'buyIn': 2,   'fee': 0.2,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,6,4)},
                         '$2 Bounty SnG - 6 Handed'              : {'buyIn': 2,   'fee': 0.2,  'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (7, 3, 2)},
                         '$2 NL Holdem All-In or Fold 10 - Handed' : {'buyIn': 2,   'fee': 0.16, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,6,4)},
                         '$2 NL Holdem Double Up - 10 Handed'    : {'buyIn': 2,   'fee': 0.16, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (4,4,4,4,4)},
+                        '$2 PL Omaha Double Up - 10 Handed'     : {'buyIn': 2,   'fee': 0.16, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (4,4,4,4,4)},
                         '$2 Satellite'                          : {'buyIn': 2,   'fee': 0.2,  'currency': 'USD', 'seats': 5,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (11,)},
                         '$20 Bounty SnG - 10 Handed'            : {'buyIn': 20,  'fee': 2,    'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (50, 30, 30)},
-                        '$20 Bounty SnG - 6 Handed'             : {'buyIn': 20,  'fee': 2,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (50, 30, 30)},
+                        '$20 Bounty SnG - 9 Handed'             : {'buyIn': 20,  'fee': 2,    'currency': 'USD', 'seats': 9, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (45, 27, 18)},
+                        '$20 Bounty SnG - 6 Handed'             : {'buyIn': 20,  'fee': 2,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
                         '$20 Daily Deep Stack Satellite'        : {'buyIn': 20,  'fee': 2,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (109, 11)},
                         '$20 NL Holdem Double Up - 10 Handed'   : {'buyIn': 20,  'fee': 1.6,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (40,40,40,40,40)},
+                        '$20 NL Holdem Double Up - 10 Handed Turbo' : {'buyIn': 20,  'fee': 1.4,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (40,40,40,40,40)},
                         '$3 NL Holdem Double Up - 10 Handed'    : {'buyIn': 3,   'fee': 0.24, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (6,6,6,6,6)},
+                        '$3 PL Omaha Double Up - 10 Handed'    : {'buyIn': 3,   'fee': 0.24, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (6,6,6,6,6)},
+                        '$3.30 - 90 Man - Unlimited Rebuys and Addon SNG' : {'buyIn': 3,   'fee': 0.3, 'currency': 'USD', 'seats': 9, 'max': 90, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (81, 58.05, 40.5, 29.7, 20.25, 14.85, 10.8)},
                         '$30 Bounty SnG - 6 Handed'             : {'buyIn': 30,  'fee': 3,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (84, 36)},
+                        '$33 Coupon - Super Turbo Satellite'    : {'buyIn': 11,  'fee': 0.2,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (33, 33)},
+                        '$33 Turbo - 6 Max'                     : {'buyIn': 30,  'fee': 3,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (126, 54)},
                         '$5 Bounty SnG - 10 Handed'             : {'buyIn': 5,   'fee': 0.5,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (12.50, 7.50, 5)},
+                        '$5 Bounty SnG - 9 Handed'              : {'buyIn': 5,   'fee': 0.5,  'currency': 'USD', 'seats': 9, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (11.25, 6.75, 4.5)},
                         '$5 Bounty SnG - 6 Handed'              : {'buyIn': 5,   'fee': 0.5,  'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (14, 6)},
+                        '$5 NL Holdem All-In or Fold - 10 Handed': {'buyIn': 5,   'fee': 0.4,  'currency': 'USD', 'seats': 10,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
                         '$5 NL Holdem Double Up - 6 Handed'     : {'buyIn': 5,   'fee': 0.4,  'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,10,10)},
                         '$5 NL Holdem Double Up - 10 Handed'    : {'buyIn': 5,   'fee': 0.4,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,10,10,10,10)},
+                        '$5 NL Holdem Double Up - 10 Handed Turbo' : {'buyIn': 5,   'fee': 0.35,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,10,10,10,10)},
                         '$5 PL Omaha Double Up - 10 Handed'     : {'buyIn': 5,   'fee': 0.4,  'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,10,10,10,10)},
                         '$50 NL Holdem Double Up - 10 Handed'   : {'buyIn': 50,  'fee': 4,    'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,10,10,10,10)},
                         '$50 PL Omaha Double Up - 10 Handed'    : {'buyIn': 50,  'fee': 4,    'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,10,10,10,10)},
                         '$55 Turbo - 6 Max'                     : {'buyIn': 50,  'fee': 4,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (210, 90)},
+                        '$60 Coupon - Super Turbo Satellite'    : {'buyIn': 10,  'fee': 0.19, 'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (60,)},
                         '$60 Daily High Roller SnG Satellite'   : {'buyIn': 55,  'fee': 5,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (215, 115)},
                         '$75 Bounty SnG - 6 Handed'             : {'buyIn': 75,  'fee': 7.5,  'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (210, 90)},
                         '$82 Turbo - 6 Max'                     : {'buyIn': 75,  'fee': 7,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (315, 135)},
+                        '**NEW** Bumblebee Room - 3 Minute Levels'    : {'buyIn': 0.1, 'fee': 0.01, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (0.39, 0.21)},
+                        '**NEW** Coyote Room - 3 Minute Levels'       : {'buyIn': 50, 'fee': 2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (195, 105)},
+                        '**NEW** Dragonfly Room - 3 Minute Levels'    : {'buyIn': 2, 'fee': 0.12, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (7.80, 4.20)},
+                        '**NEW** Fruit Fly Room - 3 Minute Levels'    : {'buyIn': 1, 'fee': 0.06, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (3.90, 2.1)},
+                        '**NEW** Gazelle Room - 3 Minute Levels'      : {'buyIn': 100, 'fee': 3.7, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (390, 210)},
+                        '**NEW** Greyhound Room - 3 Minute Levels'    : {'buyIn': 35, 'fee': 1.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (136.5, 73.5)},
+                        '**NEW** Hare Room - 3 Minute Levels'         : {'buyIn': 20, 'fee': 0.9, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (78, 42)},
+                        '**NEW** Hummingbird Room - 3 Minute Levels'  : {'buyIn': 5, 'fee': 0.3, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (19.50, 10.50)},
+                        '**NEW** Killer Whale Room - 3 Minute Levels' : {'buyIn': 500, 'fee': 12, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1950, 1050)},
+                        '**NEW** Marlin Room - 3 Minute Levels'       : {'buyIn': 350, 'fee': 10, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1365, 735)},
+                        '**NEW** Sailfish Room - 3 Minute Levels'     : {'buyIn': 209, 'fee': 7, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (815.10, 438.90)},
+                        '**NEW** Swift Room - 3 Minute Levels'        : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (39, 21)},
+                        '100 Man Shootout Satellite - 4 x $109 tickets guaranteed!':  {'buyIn': 5,  'fee': 0.5,    'currency': 'USD', 'seats': 10, 'max': 100,  'multi': True, 'payoutCurrency': 'USD', 'payouts': (109, 109, 109, 109, 64)},
                         '100 VIP Point SnG'                     : {'buyIn': 1,   'fee': 0.05, 'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (0,0)},
                         '250 VIP Point SnG'                     : {'buyIn': 2.5, 'fee': 0.15, 'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (0,0)},
                         '500 VIP Point SnG'                     : {'buyIn': 5,   'fee': 0.25, 'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (0,0)},
@@ -144,6 +177,7 @@ class Merge(HandHistoryConverter):
                         'Alpaca Room - Turbo'                   : {'buyIn': 10,  'fee': 1,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
                         'Anaconda Room - Heads Up'              : {'buyIn': 100, 'fee': 4.5,  'currency': 'USD', 'seats': 2,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (200,)},
                         'Anaconda Room - Turbo Heads Up'        : {'buyIn': 110, 'fee': 4.5,  'currency': 'USD', 'seats': 2,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (220,)},
+                        'Anchovy Room - Super Turbo HU'         : {'buyIn': 4, 'fee': 0.15,  'currency': 'USD', 'seats': 2,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (8,)},
                         'Anteater Room'                         : {'buyIn': 10,  'fee': 1,    'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
                         'Antelope Room'                         : {'buyIn': 5,   'fee': 0.5,  'currency': 'USD', 'seats': 6,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
                         'Arctic Fox Room - Heads Up'            : {'buyIn': 2,   'fee': 0.1, 'currency': 'USD', 'seats': 2,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (4,)},
@@ -153,22 +187,27 @@ class Merge(HandHistoryConverter):
                         'Axolotyl Room - Turbo Heads Up'        : {'buyIn': 33,  'fee': 1.5,  'currency': 'USD', 'seats': 2,  'multi': False, 'payoutCurrency': 'USD', 'payouts': (66,)},
                         'Badger Room'                           : {'buyIn': 10,  'fee': 1, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (50, 30, 20)},
                         'Bandicoot Room'                        : {'buyIn': 2,   'fee': 0.2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (8.40, 3.60)},
+                        'Barramundi Room - Super Turbo'         : {'buyIn': 20,   'fee': 0.9, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (84, 36)},
                         'Bear Room'                             : {'buyIn': 50,  'fee': 5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (210, 90)},
                         'Bear Room - Heads Up'                  : {'buyIn': 200, 'fee': 9, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (400,)},
                         'Bear Room - Turbo Heads Up'            : {'buyIn': 220, 'fee': 9, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (440,)},
-                        'Beaver Room'                           : {'buyIn': 5, '  fee': 0.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
+                        'Beaver Room'                           : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
                         'Beaver Room 12 min levels'             : {'buyIn': 5,   'fee': 0.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
                         'Beaver Room 12 min levels Short Handed' : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
                         'Bilby Room - Heads Up'                 : {'buyIn': 5, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,)},
                         'Bilby Room - Turbo Heads Up'           : {'buyIn': 7, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (14,)},
                         'Bison Room - Heads Up'                 : {'buyIn': 50, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (100,)},
                         'Bison Room - Turbo Heads Up'           : {'buyIn': 55, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (110,)},
-                        'Black Bear Room Turbo Heads Up (4 player)' : {'buyIn': 4, 'fee': 0.6, 'currency': 'USD', 'seats': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (48,)},
-                        'Black Mamba Room - Super Turbo'        : {'buyIn': 12, 'fee': 52, 'currency': 'USD', 'seats': 2, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (312, 187.2, 124.8)},
+                        'Black Bear Room Turbo Heads Up (4 player)' : {'buyIn': 4, 'fee': 0.6, 'currency': 'USD', 'seats': 2, 'max': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (48,)},
+                        'Black Mamba Room - Super Turbo'        : {'buyIn': 12, 'fee': 52, 'currency': 'USD', 'seats': 6, 'max': 12, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (312, 187.2, 124.8)},
+                        'Blackfish Room - Super Turbo'          : {'buyIn': 5, 'fee': 0.3, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21,9)},
+                        'Blue Ringed Octopus Room - Super Turbo HU' : {'buyIn': 8, 'fee': 0.2, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (16,)},
+                        'Blue Swimmer Crab - Super Turbo HU'    : {'buyIn': 15, 'fee': 0.3, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (30,)},
                         'Boar Room - Heads Up'                  : {'buyIn': 20, 'fee': 1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (40,)},
                         'Boar Room - Turbo Heads Up'            : {'buyIn': 22, 'fee': 1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (44,)},
                         'Bobcat Room'                           : {'buyIn': 20, 'fee': 2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (84, 36)},
                         'Botfly Room - Super Turbo HU'          : {'buyIn': 8, 'fee': 0.2, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (16,)},
+                        'Bottlenose Dolphin Room - Super Turbo' : {'buyIn': 100, 'fee': 3.70, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (420, 180)},
                         'Buffalo Room'                          : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
                         'Buffalo Room - Heads Up'               : {'buyIn': 300, 'fee': 12, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (600,)},
                         'Buffalo Room - Turbo Heads Up'         : {'buyIn': 330, 'fee': 12, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (660,)},
@@ -178,20 +217,21 @@ class Merge(HandHistoryConverter):
                         'Bushmaster Room Super Turbo HU'        : {'buyIn': 250, 'fee': 4, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (500,)},
                         'Caiman Room'                           : {'buyIn': 20, 'fee': 2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (84, 36)},
                         'Camel Room'                            : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
-                        'Cape Hunting Dog Room'                 : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (27.90, 19.35, 14.85, 11.25, 8.10, 5.40, 3.15)},
+                        'Cape Hunting Dog Room'                 : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 9, 'max': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (27.90, 19.35, 14.85, 11.25, 8.10, 5.40, 3.15)},
                         'Capra room - Heads Up'                 : {'buyIn': 5, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,)},
                         'Capybara Room'                         : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
                         'Cassowary Room'                        : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
                         'Cobra Room - Heads Up'                 : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (20,)},
                         'Cobra Room - Turbo Heads Up'           : {'buyIn': 11, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (22,)},
+                        'Coconut Crab Room - Super Turbo'       : {'buyIn': 35, 'fee': 1.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (147, 63)},
                         'Condor Room - Heads Up'                : {'buyIn': 30, 'fee': 1.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (60,)},
                         'Condor Room - Turbo Heads Up'          : {'buyIn': 33, 'fee': 1.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (66,)},
                         'Conga Eel Room - Super Turbo HU'       : {'buyIn': 120, 'fee': 2.3, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (240,)},
                         'Cougar Room - Heads Up'                : {'buyIn': 20, 'fee': 1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (40,)},
                         'Cougar Room - Turbo Heads Up'          : {'buyIn': 22, 'fee': 1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (44,)},
                         'Coyote Room - Super Turbo'             : {'buyIn': 50, 'fee': 2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (210, 90)},
-                        'Cricket Room - Super Turbo 6 Max'      : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 18, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (14.40, 10.8, 7.2, 3.6)},
-                        'Crocodile Room'                        : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 18, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (36, 27, 18, 9)},
+                        'Cricket Room - Super Turbo 6 Max'      : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 6, 'max': 18, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (14.40, 10.8, 7.2, 3.6)},
+                        'Crocodile Room'                        : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 9, 'max': 18, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (36, 27, 18, 9)},
                         'Daily High Roller - Super Turbo Satellite' : {'buyIn': 72, 'fee': 1.3, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (215, 215, 2)},
                         'Dingo Room - Heads Up'                 : {'buyIn': 50, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (100,)},
                         'Dingo Room - Turbo Heads Up'           : {'buyIn': 55, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (110,)},
@@ -221,10 +261,11 @@ class Merge(HandHistoryConverter):
                         'Fox Room - Turbo Heads Up'             : {'buyIn': 11, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (22,)},
                         'Frigate Bird Room Super Turbo HU'      : {'buyIn': 2, 'fee': 0.1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (4,)},
                         'Fruit Fly Room - Super Turbo'          : {'buyIn': 1, 'fee': 0.06, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (4.20, 1.80)},
-                        'Fusilier Room Turbo'                   : {'buyIn': 1, 'fee': 0.1, 'currency': 'USD', 'seats': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (13.96, 9.68, 7.42, 5.62, 4.05, 2.70, 1.57)},
+                        'Fusilier Room Turbo'                   : {'buyIn': 1, 'fee': 0.1, 'currency': 'USD', 'seats': 9, 'max': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (13.96, 9.68, 7.42, 5.62, 4.05, 2.70, 1.57)},
                         'Fun Step 1'                            : {'buyIn': 0, 'fee': 0, 'currency': 'FREE', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (0, 0, 0)},
                         'Fun Step 2'                            : {'buyIn': 0, 'fee': 0, 'currency': 'FREE', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (0, 0, 0)},
                         'Fun Step 3'                            : {'buyIn': 0, 'fee': 0, 'currency': 'FREE', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1, 0, 0)},
+                        'Galapagos Turtle - Super Turbo HU'     : {'buyIn': 120, 'fee': 2.30, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (240,)},
                         'Gazelle Room - Super Turbo'            : {'buyIn': 100, 'fee': 3.7, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (420, 180)},
                         'Gecko Room'                            : {'buyIn': 30, 'fee': 3, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (150, 90, 60)},
                         'Gecko Room Turbo'                      : {'buyIn': 30, 'fee': 3, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (150, 90, 60)},
@@ -241,10 +282,11 @@ class Merge(HandHistoryConverter):
                         'Goldfish Room'                         : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (8.40, 3.60)},
                         'Great White Shark Room - Heads Up'     : {'buyIn': 2000, 'fee': 40, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (4000,)},
                         'Great White Shark Room - Turbo Heads Up' : {'buyIn': 2200, 'fee': 40, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (4400,)},
-                        'Grey Wolf Room Turbo HU (4 player)'   : {'buyIn': 18, 'fee': 0.9, 'currency': 'USD', 'seats': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (72,)},
+                        'Grey Wolf Room Turbo HU (4 player)'    : {'buyIn': 18, 'fee': 0.9, 'currency': 'USD', 'seats': 2, 'max': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (72,)},
+                        'Greyhound Room - 2 Minute Levels'      : {'buyIn': 35, 'fee': 1.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (136.5, 73.5)},
                         'Greyhound Room - Super Turbo'          : {'buyIn': 35, 'fee': 1.5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (147, 63)},
                         'Grizzly Room'                          : {'buyIn': 30, 'fee': 3, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (126, 54)},
-                        'Guinea Pig Room - Super Turbo'         : {'buyIn': 5, 'fee': 0.3, 'currency': 'USD', 'seats': 12, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (30, 18, 12)},
+                        'Guinea Pig Room - Super Turbo'         : {'buyIn': 5, 'fee': 0.3, 'currency': 'USD', 'seats': 6, 'max': 12, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (30, 18, 12)},
                         'Hairy Frog Room - Super Turbo HU'      : {'buyIn': 28, 'fee': 0.7, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (56,)},
                         'Hare Room - Super Turbo'               : {'buyIn': 20, 'fee': 0.9, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (84, 36)},
                         'Hedgehog Room'                         : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 9, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (22.50, 13.50, 9)},
@@ -252,7 +294,7 @@ class Merge(HandHistoryConverter):
                         'Hippo Room - Heads Up'                 : {'buyIn': 50, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (100,)},
                         'Hippo Room - Turbo Heads Up'           : {'buyIn': 55, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (110,)},
                         'Honey Badger Room'                     : {'buyIn': 5, 'fee': 5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
-                        'Howler Monkey Room - Super Turbo'      : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 12, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (60, 36, 24)},
+                        'Howler Monkey Room - Super Turbo'      : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 6, 'max': 12, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (60, 36, 24)},
                         'Hummingbird Room - Super Turbo'        : {'buyIn': 5, 'fee': 0.3, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (21, 9)},
                         'Hyena Room'                            : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10, 6, 4)},
                         'Ibex Room - Super Turbo HU'            : {'buyIn': 180, 'fee': 3.1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (360,)},
@@ -262,6 +304,8 @@ class Merge(HandHistoryConverter):
                         'Jaguar Room'                           : {'buyIn': 50, 'fee': 5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (210, 90)},
                         'Killer Whale Room - Super Turbo'       : {'buyIn': 500, 'fee': 12, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (2100, 900)},
                         'King Cobra Room - Super Turbo HU'      : {'buyIn': 500, 'fee': 7.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1000,)},
+                        'King Crab Room - Super Turbo HU'       : {'buyIn': 28, 'fee': 0.7, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (56,)},
+                        'King Tuna Room - Super Turbo'          : {'buyIn': 50, 'fee': 2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (210, 90)},
                         'Komodo Room'                           : {'buyIn': 50, 'fee': 5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (210, 90)},
                         'Kookaburra Room - Heads Up'            : {'buyIn': 20, 'fee': 1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (40,)},
                         'Kookaburra Room - Turbo Heads Up'      : {'buyIn': 22, 'fee': 1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (44,)},
@@ -281,7 +325,7 @@ class Merge(HandHistoryConverter):
                         'Meerkat Room - Turbo'                  : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (8.40, 3.60)},
                         'Mink Room - Heads Up'                  : {'buyIn': 5, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,)},
                         'Mink Room - Turbo Heads Up'            : {'buyIn': 7, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (14,)},
-                        'Mountain Goat Room Turbo HU (4 player)' : {'buyIn': 6, 'fee': 0.3, 'currency': 'USD', 'seats': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (24,)},
+                        'Mountain Goat Room Turbo HU (4 player)' : {'buyIn': 6, 'fee': 0.3, 'currency': 'USD', 'seats': 2, 'max': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (24,)},
                         'Mongoose Room'                         : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10, 6, 4)},
                         'Monkey Room'                           : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 9, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (90, 54, 36)},
                         'Mountain Lion Turbo HU'                : {'buyIn': 75, 'fee': 3.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (150,)},
@@ -296,9 +340,10 @@ class Merge(HandHistoryConverter):
                         'Panther Room - Heads Up'               : {'buyIn': 500, 'fee': 20, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1000,)},
                         'Panther Room - Turbo Heads Up'         : {'buyIn': 550, 'fee': 20, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1100,)},
                         'Peregrine Room'                        : {'buyIn': 330, 'fee': 20, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1386, 594)},
-                        'Pilchard Room Turbo'                   : {'buyIn': 1, 'fee': 0.1, 'currency': 'USD', 'seats': 18, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (7.20, 5.40, 3.60, 1.80)},
+                        'Pilchard Room Turbo'                   : {'buyIn': 1, 'fee': 0.1, 'currency': 'USD', 'seats': 9, 'max': 18, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (7.20, 5.40, 3.60, 1.80)},
                         'Piranha Room - Heads Up'               : {'buyIn': 50, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (100,)},
                         'Piranha Room - Turbo Heads Up'         : {'buyIn': 55, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (110,)},
+                        'Polar Bear Room - Super Turbo HU'      : {'buyIn': 500, 'fee': 7.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1000,)},
                         'Pond Skater Room - Super Turbo HU'     : {'buyIn': 15, 'fee': 0.3, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (30,)},
                         'Platypus Room'                         : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
                         'Pronghorn Antelope Room - Super Turbo HU' : {'buyIn': 1000, 'fee': 15, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (2000,)},
@@ -308,16 +353,18 @@ class Merge(HandHistoryConverter):
                         'Rabbit Room - Turbo'                   : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10, 6, 4)},
                         'Racoon Room'                           : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
                         'Rattlesnake Room - Heads Up'           : {'buyIn': 5, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,)},
-                        'Rattlesnake Room - Heads Up'           : {'buyIn': 5.75, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (11.50,)},
+                        'Rattlesnake Room - Turbo Heads Up'     : {'buyIn': 5.75, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (11.50,)},
                         'Raven Room'                            : {'buyIn': 180, 'fee': 14, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (756, 324)},
                         'Razorback Room'                        : {'buyIn': 100, 'fee': 9, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (420, 180)},
                         'Red Kangaroo Room - Heads Up'          : {'buyIn': 20, 'fee': 1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (40,)},
                         'Rhino Room - Heads Up'                 : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (20,)},
                         'Rhino Room - Turbo Heads Up'           : {'buyIn': 11, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (22,)},
                         'Sailfish Room - Super Turbo'           : {'buyIn': 209, 'fee': 7, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (877.80, 376.20)},
-                        'Salmon Room'                           : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (69.76, 48.38, 37.12, 28.12, 20.25, 13.50, 7.87)},
-                        'Sardine Room Turbo'                    : {'buyIn': 1, 'fee': 0.1, 'currency': 'USD', 'seats': 27, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (10.27, 7.02, 4.59, 2.75, 2.37)},
-                        'Sea Eagle Room Turbo HU (4 player)'   : {'buyIn': 24, 'fee': 1.2, 'currency': 'USD', 'seats': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (96,)},
+                        'Salmon Room'                           : {'buyIn': 5, 'fee': 0.5, 'currency': 'USD', 'seats': 9, 'max': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (69.76, 48.38, 37.12, 28.12, 20.25, 13.50, 7.87)},
+                        'Sardine Room Turbo'                    : {'buyIn': 1, 'fee': 0.1, 'currency': 'USD', 'seats': 9, 'max': 27, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (10.27, 7.02, 4.59, 2.75, 2.37)},
+                        'Sea Eagle Room Turbo HU (4 player)'    : {'buyIn': 24, 'fee': 1.2, 'currency': 'USD', 'seats': 2, 'max': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (96,)},
+                        'Silverfish Room - Super Turbo'         : {'buyIn': 10, 'fee': 5, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
+                        'Sea Kraits Room - Super Turbo HU'      : {'buyIn': 70, 'fee': 1.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (140,)},
                         'Secretary Bird Room - Super Turbo HU'  : {'buyIn': 90, 'fee': 1.8, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (180,)},
                         'Shrew Room - Heads Up'                 : {'buyIn': 5, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10,)},
                         'Shrew Room - Turbo Heads Up'           : {'buyIn': 7, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (14,)},
@@ -328,11 +375,13 @@ class Merge(HandHistoryConverter):
                         "Snakes'n'Ladders Step 5"               : {'buyIn': 75, 'fee': 5, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (265, 265, 80, 80, 32.50, 11, 11, 3.30, 1.10, 1.10)},
                         "Snakes'n'Ladders Step 6"               : {'buyIn': 255, 'fee': 10, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (530, 530, 530, 265, 265, 265, 80, 80, 3.30, 1.70)},
                         "Snakes'n'Ladders Step 7"               : {'buyIn': 510, 'fee': 20, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (2000, 1250, 750, 499.50, 295, 220, 80, 3.30, 1.10, 1.10)},
-                        'Snow Goose Room'                       : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (139.50, 96.75, 74.25, 56.25, 40.50, 27, 15.75)},
-                        'Springbok Room - Super Turbo'          : {'buyIn': 20, 'fee': 0.9, 'currency': 'USD', 'seats': 12, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (120, 72, 48)},
+                        'Snow Goose Room'                       : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 9, 'max': 45, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (139.50, 96.75, 74.25, 56.25, 40.50, 27, 15.75)},
+                        'Southern Stingray Room - Super Turbo HU' : {'buyIn': 55, 'fee': 1.1, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (110,)},
+                        'Springbok Room - Super Turbo'          : {'buyIn': 20, 'fee': 0.9, 'currency': 'USD', 'seats': 6, 'max': 12, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (120, 72, 48)},
                         'Squirrel Room - Turbo'                 : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (8.40, 3.60)},
-                        'Stag Room Turbo HU (4 player)'        : {'buyIn': 3, 'fee': 0.15, 'currency': 'USD', 'seats': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (12,)},
-                        'Starling Room'                         : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 180, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (108, 72, 36, 28.80, 21.60, 18, 14.40, 10.80, 8.10, 6.30, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60) },
+                        'Stag Room Turbo HU (4 player)'        : {'buyIn': 3, 'fee': 0.15, 'currency': 'USD', 'seats': 2, 'max': 4, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (12,)},
+                        'Starling Room'                         : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 9, 'max': 180, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (108, 72, 36, 28.80, 21.60, 18, 14.40, 10.80, 8.10, 6.30, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60) },
+                        'Starling Room TURBO'                   : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 9, 'max': 180, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (108, 72, 36, 28.80, 21.60, 18, 14.40, 10.80, 8.10, 6.30, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60, 3.60) },
                         'STEP 1 AIOF Sng'                       : {'buyIn': 1, 'fee': 0.1, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (5.50, 1.10, 1.10, 1.10, 0.20)},
                         'STEP 10 AIOF Final Sng'                : {'buyIn': 1170, 'fee': 10, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (2250, 90)},
                         'STEP 2 AIOF Sng'                       : {'buyIn': 5.25, 'fee': 0.25, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (10.50,)},
@@ -354,6 +403,7 @@ class Merge(HandHistoryConverter):
                         'Tiger Fish Room'                       : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 8, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (56, 24,)},
                         'Tiger Room - Heads Up'                 : {'buyIn': 50, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (100,)},
                         'Tiger Room - Turbo Heads Up'           : {'buyIn': 55, 'fee': 2.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (100,)},
+                        'Tiger Shark - Super Turbo'             : {'buyIn': 209, 'fee': 7, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (877.80, 376.20)},
                         'Timber Wolf Room'                      : {'buyIn': 400, 'fee': 22, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1680, 720)},
                         'Toucan Room - Heads Up'                : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (20,)},
                         'Toucan Room - Heads Up'                : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (20,)},
@@ -365,9 +415,11 @@ class Merge(HandHistoryConverter):
                         'Vulture Room'                          : {'buyIn': 20, 'fee': 2, 'currency': 'USD', 'seats': 9, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (90,54,36)},
                         'Wallaby Room'                          : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
                         'Walrus Room'                           : {'buyIn': 50, 'fee': 5, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (250, 150, 100)},
-                        'Warthog Room'                          : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 9, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (18, 10.80, 7.20)},
+                        'Warthog Room'                          : {'buyIn': 2, 'fee': 0.2, 'currency': 'USD', 'seats': 9, 'max': 18, 'multi': True, 'payoutCurrency': 'USD', 'payouts': (18, 10.80, 7.20)},
                         'Waterbuck room - Heads Up'             : {'buyIn': 10, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (20,)},
                         'Whale Room - Heads Up'                 : {'buyIn': 500, 'fee': 20, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (1000,)},
+                        'Whale Shark Room - Super Turbo'        : {'buyIn': 500, 'fee': 12, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (2100,900)},
+                        'White Whale Room Super Turbo HU'     : {'buyIn': 250, 'fee': 4, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (500,)},
                         'Wildebeest Room'                       : {'buyIn': 10, 'fee': 1, 'currency': 'USD', 'seats': 6, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (42, 18)},
                         'Wolf Spider Room - Super Turbo HU'     : {'buyIn': 21, 'fee': 0.5, 'currency': 'USD', 'seats': 2, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (42,)},
                         'Wolverine Room'                        : {'buyIn': 50, 'fee': 0.5, 'currency': 'USD', 'seats': 10, 'multi': False, 'payoutCurrency': 'USD', 'payouts': (25, 15, 10)},
@@ -380,11 +432,11 @@ class Merge(HandHistoryConverter):
     # Static regexes
     re_SplitHands = re.compile(r'</game>\n+(?=<)')
     re_TailSplitHands = re.compile(r'(</game>)')
-    re_GameInfo = re.compile(r'(?P<HEAD><description type="(?P<GAME>Holdem|Omaha|Omaha|Omaha\sH/L8|2\-7\sLowball|A\-5\sLowball|Badugi|5\-Draw\sw/Joker|5\-Draw|7\-Stud|7\-Stud\sH/L8|5\-Stud|Razz|HORSE|RASH|HA|HO|SHOE|HOSE|HAR)(?P<TYPE>\sTournament)?" stakes="(?P<LIMIT>[a-zA-Z ]+)(\s\(?\$?(?P<SB>[.0-9]+)?/?\$?(?P<BB>[.0-9]+)?(?P<blah>.*)\)?)?"/>\s?)', re.MULTILINE)
+    re_GameInfo = re.compile(r'(?P<HEAD><description type="(?P<GAME>Holdem|Omaha|Omaha|Omaha\sH/L8|2\-7\sLowball|A\-5\sLowball|Badugi|5\-Draw\sw/Joker|5\-Draw|7\-Stud|7\-Stud\sH/L8|5\-Stud|Razz|HORSE|RASH|HA|HO|SHOE|HOSE|HAR)(?P<TYPE>\sTournament)?" stakes="(?P<LIMIT>[a-zA-Z ]+)(\s\(?\$?(?P<SB>[.0-9]+)?/?\$?(?P<BB>[.0-9]+)?(?P<blah>.*)\)?)?"(\sversion="\d+")?/>\s?)', re.MULTILINE)
     # <game id="46154255-645" starttime="20111230232051" numholecards="2" gametype="1" seats="9" realmoney="false" data="20111230|Play Money (46154255)|46154255|46154255-645|false">
     # <game id="46165919-1" starttime="20111230161824" numholecards="2" gametype="23" seats="10" realmoney="true" data="20111230|Fun Step 1|46165833-1|46165919-1|true">
     # <game id="46289039-1" starttime="20120101200100" numholecards="2" gametype="23" seats="9" realmoney="true" data="20120101|$200 Freeroll - NL Holdem - 20%3A00|46245544-1|46289039-1|true">
-    re_HandInfo = re.compile(r'<game id="(?P<HID1>[0-9]+)-(?P<HID2>[0-9]+)" starttime="(?P<DATETIME>[0-9]+)" numholecards="[0-9]+" gametype="[0-9]+" (multigametype="(?P<MULTIGAMETYPE>\d+)" )?(seats="(?P<SEATS>[0-9]+)" )?realmoney="(?P<REALMONEY>(true|false))" data="[0-9]+[|:](?P<TABLENAME>[^|:]+)[|:](?P<TDATA>[^|:]+)[|:]?.*>', re.MULTILINE)
+    re_HandInfo = re.compile(r'<game id="(?P<HID1>[0-9]+)-(?P<HID2>[0-9]+)" starttime="(?P<DATETIME>.+?)" numholecards="[0-9]+" gametype="[0-9]+" (multigametype="(?P<MULTIGAMETYPE>\d+)" )?(seats="(?P<SEATS>[0-9]+)" )?realmoney="(?P<REALMONEY>(true|false))" data="[0-9]+[|:](?P<TABLENAME>[^|:]+)[|:](?P<TDATA>[^|:]+)[|:]?.*>', re.MULTILINE)
     re_Button = re.compile(r'<players dealer="(?P<BUTTON>[0-9]+)">')
     re_PlayerInfo = re.compile(r'<player seat="(?P<SEAT>[0-9]+)" nickname="(?P<PNAME>.+)" balance="\$(?P<CASH>[.0-9]+)" dealtin="(?P<DEALTIN>(true|false))" />', re.MULTILINE)
     re_Board = re.compile(r'<cards type="COMMUNITY" cards="(?P<CARDS>[^"]+)"', re.MULTILINE)
@@ -410,6 +462,7 @@ class Merge(HandHistoryConverter):
     re_LeaveTable  = re.compile(r'<event sequence="\d+" type="LEAVE" timestamp="\d+" player="\d"/>', re.MULTILINE)
     re_PlayerOut   = re.compile(r'<event sequence="\d+" type="PLAYER_OUT" timestamp="\d+" player="(?P<PSEAT>[0-9])"/>', re.MULTILINE)
     re_EndOfHand   = re.compile(r'<round id="END_OF_GAME"', re.MULTILINE)
+    re_DateTime    = re.compile(r'(?P<Y>[0-9]{4})\/(?P<M>[0-9]{2})\/(?P<D>[0-9]{2})[\- ]+(?P<H>[0-9]+):(?P<MIN>[0-9]+):(?P<S>[0-9]+)', re.MULTILINE)
 
     def compilePlayerRegexs(self, hand):
         pass
@@ -429,6 +482,7 @@ class Merge(HandHistoryConverter):
 
                 ["ring", "stud", "fl"],
                 ["ring", "stud", "pl"],
+                ["ring", "stud", "nl"],
 
                 ["ring", "draw", "fl"],
                 ["ring", "draw", "pl"],
@@ -441,6 +495,7 @@ class Merge(HandHistoryConverter):
 
                 ["tour", "stud", "fl"],
                 ["tour", "stud", "pl"],
+                ["tour", "stud", "nl"],
                 
                 ["tour", "draw", "fl"],
                 ["tour", "draw", "pl"],
@@ -560,8 +615,16 @@ or None if we fail to get the info """
             hand.maxseats = None
             if m.group('SEATS')!=None:
                 hand.maxseats = int(m.group('SEATS')) 
-
-        hand.startTime = datetime.datetime.strptime(m.group('DATETIME')[:14],'%Y%m%d%H%M%S')
+                
+        m1 = self.re_DateTime.search(m.group('DATETIME'))
+        if m1:
+            mg = m1.groupdict()
+            datetimestr = "%s/%s/%s %s:%s:%s" % (mg['Y'], mg['M'],mg['D'],mg['H'],mg['MIN'],mg['S'])
+            #tz = a.group('TZ')  # just assume ET??
+            hand.startTime = datetime.datetime.strptime(datetimestr, "%Y/%m/%d %H:%M:%S") # also timezone at end, e.g. " ET"
+        else:
+            hand.startTime = datetime.datetime.strptime(m.group('DATETIME')[:14],'%Y%m%d%H%M%S')
+            
         hand.startTime = HandHistoryConverter.changeTimezone(hand.startTime, "ET", "UTC")
         hand.newFormat = datetime.datetime.strptime('20100908000000','%Y%m%d%H%M%S')
         hand.newFormat = HandHistoryConverter.changeTimezone(hand.newFormat, "ET", "UTC")
@@ -584,7 +647,7 @@ or None if we fail to get the info """
             fulltable = False
             for action in m2:
                 acted[action.group('PSEAT')] = True
-                if len(seated) == len(acted): # We've faound all players
+                if acted.keys() == seated.keys(): # We've faound all players
                     fulltable = True
                     break
             if fulltable != True:
@@ -673,68 +736,73 @@ or None if we fail to get the info """
             hand.gametype['bb'] = "2"
 
     def readBlinds(self, hand):
-        if hand.gametype['base'] == 'hold':
-            street = 'PREFLOP'
-        elif hand.gametype['base'] == 'draw':
-            street = 'DEAL'
-        allinBlinds = {}
-        blindsantes = hand.handText.split(street)[0]
-        bb, sb = None, None
-        for a in self.re_PostSB.finditer(blindsantes):
-            #print "DEBUG: found sb: '%s' '%s'" %(self.playerNameFromSeatNo(a.group('PSEAT'), hand), a.group('SB'))
-            sb = a.group('SB')
-            player = self.playerNameFromSeatNo(a.group('PSEAT'), hand)
-            self.adjustMergeTourneyStack(hand, player, sb)
-            hand.addBlind(player,'small blind', sb)
-            if not hand.gametype['sb'] or hand.gametype['secondGame']:
-                hand.gametype['sb'] = sb
-        for a in self.re_PostBB.finditer(blindsantes):
-            #print "DEBUG: found bb: '%s' '%s'" %(self.playerNameFromSeatNo(a.group('PSEAT'), hand), a.group('BB'))
-            bb = a.group('BB')
-            player = self.playerNameFromSeatNo(a.group('PSEAT'), hand)
-            self.adjustMergeTourneyStack(hand, player, bb)
-            hand.addBlind(player, 'big blind', bb)
-            if not hand.gametype['bb'] or hand.gametype['secondGame']:
-                hand.gametype['bb'] = bb
-        for a in self.re_PostBoth.finditer(blindsantes):
-            bb = Decimal(self.info['bb'])
-            amount = Decimal(a.group('SBBB'))
-            player = self.playerNameFromSeatNo(a.group('PSEAT'), hand)
-            self.adjustMergeTourneyStack(hand, player, a.group('SBBB'))
-            if amount < bb:
-                hand.addBlind(player, 'small blind', a.group('SBBB'))
-            elif amount == bb:
-                hand.addBlind(player, 'big blind', a.group('SBBB'))
-            else:
-                hand.addBlind(player, 'both', a.group('SBBB'))
-        if sb is None or bb is None:
-            m = self.re_Action.finditer(blindsantes)
-            for action in m:
-                player = self.playerNameFromSeatNo(action.group('PSEAT'), hand)
-                #print "DEBUG: found: '%s' '%s'" %(self.playerNameFromSeatNo(action.group('PSEAT'), hand), action.group('BET'))
-                if sb is None:
-                    if action.group('BET') and action.group('BET')!= '0.00':
-                        sb = action.group('BET')  
-                        self.adjustMergeTourneyStack(hand, player, sb)
-                        hand.addBlind(player, 'small blind', sb)
-                        if not hand.gametype['sb'] or hand.gametype['secondGame']:
-                            hand.gametype['sb'] = sb
-                    elif action.group('BET') == '0.00':
-                        allinBlinds[player] = 'small blind'
-                        #log.error(_(_("MergeToFpdb.readBlinds: Cannot calcualte tourney all-in blind for hand '%s'")) % hand.handid)
-                        #raise FpdbParseError
-                elif sb and bb is None:
-                    if action.group('BET') and action.group('BET')!= '0.00':
-                        bb = action.group('BET')
-                        self.adjustMergeTourneyStack(hand, player, bb)
-                        hand.addBlind(player, 'big blind', bb)
-                        if not hand.gametype['bb'] or hand.gametype['secondGame']:
-                            hand.gametype['bb'] = bb
-                    elif action.group('BET') == '0.00':
-                        allinBlinds[player] = 'big blind'
-                        #log.error(_(_("MergeToFpdb.readBlinds: Cannot calcualte tourney all-in blind for hand '%s'")) % hand.handid)
-                        #raise FpdbParseError
-        self.fixTourBlinds(hand, allinBlinds)
+        if (hand.gametype['category'], hand.gametype['limitType']) == ("badugi", "hp"):
+            if hand.gametype['sb'] == None and hand.gametype['bb'] == None:
+                hand.gametype['sb'] = "1"
+                hand.gametype['bb'] = "2"
+        else:
+            if hand.gametype['base'] == 'hold':
+                street = 'PREFLOP'
+            elif hand.gametype['base'] == 'draw':
+                street = 'DEAL'
+            allinBlinds = {}
+            blindsantes = hand.handText.split(street)[0]
+            bb, sb = None, None
+            for a in self.re_PostSB.finditer(blindsantes):
+                #print "DEBUG: found sb: '%s' '%s'" %(self.playerNameFromSeatNo(a.group('PSEAT'), hand), a.group('SB'))
+                sb = a.group('SB')
+                player = self.playerNameFromSeatNo(a.group('PSEAT'), hand)
+                self.adjustMergeTourneyStack(hand, player, sb)
+                hand.addBlind(player,'small blind', sb)
+                if not hand.gametype['sb'] or hand.gametype['secondGame']:
+                    hand.gametype['sb'] = sb
+            for a in self.re_PostBB.finditer(blindsantes):
+                #print "DEBUG: found bb: '%s' '%s'" %(self.playerNameFromSeatNo(a.group('PSEAT'), hand), a.group('BB'))
+                bb = a.group('BB')
+                player = self.playerNameFromSeatNo(a.group('PSEAT'), hand)
+                self.adjustMergeTourneyStack(hand, player, bb)
+                hand.addBlind(player, 'big blind', bb)
+                if not hand.gametype['bb'] or hand.gametype['secondGame']:
+                    hand.gametype['bb'] = bb
+            for a in self.re_PostBoth.finditer(blindsantes):
+                bb = Decimal(self.info['bb'])
+                amount = Decimal(a.group('SBBB'))
+                player = self.playerNameFromSeatNo(a.group('PSEAT'), hand)
+                self.adjustMergeTourneyStack(hand, player, a.group('SBBB'))
+                if amount < bb:
+                    hand.addBlind(player, 'small blind', a.group('SBBB'))
+                elif amount == bb:
+                    hand.addBlind(player, 'big blind', a.group('SBBB'))
+                else:
+                    hand.addBlind(player, 'both', a.group('SBBB'))
+            if sb is None or bb is None:
+                m = self.re_Action.finditer(blindsantes)
+                for action in m:
+                    player = self.playerNameFromSeatNo(action.group('PSEAT'), hand)
+                    #print "DEBUG: found: '%s' '%s'" %(self.playerNameFromSeatNo(action.group('PSEAT'), hand), action.group('BET'))
+                    if sb is None:
+                        if action.group('BET') and action.group('BET')!= '0.00':
+                            sb = action.group('BET')  
+                            self.adjustMergeTourneyStack(hand, player, sb)
+                            hand.addBlind(player, 'small blind', sb)
+                            if not hand.gametype['sb'] or hand.gametype['secondGame']:
+                                hand.gametype['sb'] = sb
+                        elif action.group('BET') == '0.00':
+                            allinBlinds[player] = 'small blind'
+                            #log.error(_(_("MergeToFpdb.readBlinds: Cannot calcualte tourney all-in blind for hand '%s'")) % hand.handid)
+                            #raise FpdbParseError
+                    elif sb and bb is None:
+                        if action.group('BET') and action.group('BET')!= '0.00':
+                            bb = action.group('BET')
+                            self.adjustMergeTourneyStack(hand, player, bb)
+                            hand.addBlind(player, 'big blind', bb)
+                            if not hand.gametype['bb'] or hand.gametype['secondGame']:
+                                hand.gametype['bb'] = bb
+                        elif action.group('BET') == '0.00':
+                            allinBlinds[player] = 'big blind'
+                            #log.error(_(_("MergeToFpdb.readBlinds: Cannot calcualte tourney all-in blind for hand '%s'")) % hand.handid)
+                            #raise FpdbParseError
+            self.fixTourBlinds(hand, allinBlinds)
 
     def fixTourBlinds(self, hand, allinBlinds):
         # FIXME

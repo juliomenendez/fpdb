@@ -30,12 +30,12 @@ class Everleaf(HandHistoryConverter):
 
     sitename = 'Everleaf'
     filetype = "text"
-    codepage = "cp1252"
+    codepage = ("utf-8", "cp1252")
     siteId   = 3 # Needs to match id entry in Sites database
     
     substitutions = {
                      'LEGAL_ISO' : "USD|EUR|GBP|CAD|FPP",       # legal ISO currency codes
-                            'LS' : u"\$|\u20AC|\xe2\x82\xac|\x80|",  # legal currency symbols - Euro(cp1252, utf-8) #TODO change \x80 to \x20\x80, update all regexes accordingly
+                            'LS' : u"\$|\u20AC|\xe2\x82\xac|\x80|\u02c6|",  # legal currency symbols - Euro(cp1252, utf-8) #TODO change \x80 to \x20\x80, update all regexes accordingly
                         'PLAYERS': r'(?P<PNAME>.+?)',
                            'TAB' : u"-\u2013'\s\da-zA-Z#_()",     # legal characters for tablename
                            'NUM' : u".,\d",                     # legal characters in number format
@@ -50,7 +50,7 @@ class Everleaf(HandHistoryConverter):
     re_SplitHands  = re.compile(r"\n\n\n+")
     re_TailSplitHands  = re.compile(r"(\n\n\n+)")
     re_GameInfo    = re.compile(ur"^(Blinds )? ?(?P<CURRENCY>[%(LS)s]?)(?P<SB>[%(NUM)s]+) ?/ ? ?[%(LS)s]?(?P<BB>[%(NUM)s]+) (?P<LIMIT>NL|PL|) ?(?P<GAME>(Hold\'em|Omaha|7\sCard\sStud))" % substitutions, re.MULTILINE)
-    re_HandInfo    = re.compile(ur".*\n(.*#|.* partie )(?P<HID>[0-9]+).*(\n|\n\n)(Blinds )? ?(?P<CURRENCY>[%(LS)s])?(?P<SB>[%(NUM)s]+) ?/ ?(?:[%(LS)s])?(?P<BB>[%(NUM)s]+) (?P<GAMETYPE>.*) - (?P<DATETIME>\d\d\d\d/\d\d/\d\d - \d\d:\d\d:\d\d)\nTable (?P<TABLE>.+$)" % substitutions, re.MULTILINE) 
+    re_HandInfo    = re.compile(ur".*\n(.*#|.* partie )(?P<HID>[0-9]+).*(\n|\n\n)(Blinds )? ?(?P<CURRENCY>[%(LS)s])?(?P<SB>[%(NUM)s]+) ?/ ?(?:[%(LS)s])?(?P<BB>[%(NUM)s]+) (?P<GAMETYPE>.+?)(\s-\s(?P<MAX>\d+)\sMax)? - (?P<DATETIME>\d\d\d\d/\d\d/\d\d - \d\d:\d\d:\d\d)\nTable (?P<TABLE>.+$)" % substitutions, re.MULTILINE) 
     re_Button      = re.compile(ur"^Seat (?P<BUTTON>\d+) is the button$", re.MULTILINE)
     re_PlayerInfo  = re.compile(ur"""^Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.*)\s+
                                     \(
@@ -78,7 +78,7 @@ class Everleaf(HandHistoryConverter):
             # ^%s(?P<ATYPE>: bets| checks| raises| calls| folds)(\s\[(?:\$| €|) (?P<BET>[.,\d]+) (USD|EURO|EUR|Chips)\])?
             self.re_Action          = re.compile(ur"^%(PLAYERS)s(?P<ATYPE>: bets| checks| raises| calls| folds)(\s\[(?: ?[%(LS)s]?) (?P<BET>[%(NUM)s]+)\s?(USD|EURO|EUR|Chips|)\])?" % self.substitutions, re.MULTILINE)
             self.re_ShowdownAction  = re.compile(ur"^%(PLAYERS)s (?P<SHOWED>shows|mucks) \[ (?P<CARDS>.*) \] (?P<STRING>.*)" % self.substitutions, re.MULTILINE)
-            self.re_CollectPot      = re.compile(ur"^%(PLAYERS)s wins  ?(?: ?[%(LS)s]?)\s?(?P<POT>[%(NUM)s]+) (USD|EURO|EUR|chips)(.*?\[ (?P<CARDS>.*?) \])?" % self.substitutions, re.MULTILINE)
+            self.re_CollectPot      = re.compile(ur"^%(PLAYERS)s wins ( (high|low) )?\(?\s?[%(LS)s]?\s?(?P<POT>[%(NUM)s]+)\s?(USD|EURO|EUR|chips)?\)?" % self.substitutions, re.MULTILINE)
             self.re_SitsOut         = re.compile(ur"^%s sits out" % self.substitutions, re.MULTILINE)
 
     def readSupportedGames(self):
@@ -116,7 +116,6 @@ or None if we fail to get the info """
         # Table 2
         info = {'type':'ring'}
         
-        
         m = self.re_GameInfo.search(handText)
         if not m:
             tmp = handText[0:200]
@@ -133,7 +132,7 @@ or None if we fail to get the info """
                      'Razz' : ('stud','razz'),
               '7 Card Stud' : ('stud','studhi')
                }
-        currencies = { u'€':'EUR', '$':'USD', '':'T$'}
+        currencies = { u'ˆ':'EUR', u'€':'EUR', '$':'USD', '':'T$'}
         if 'LIMIT' in mg:
             info['limitType'] = limits[mg['LIMIT']]
         if 'GAME' in mg:
@@ -174,12 +173,15 @@ or None if we fail to get the info """
         #log.debug("HID %s, Table %s" % (m.group('HID'),  m.group('TABLE')))
         hand.handid =  m.group('HID')
         hand.tablename = m.group('TABLE')
-        hand.maxseats = 4     # assume 4-max unless we have proof it's a larger/smaller game, since everleaf doesn't give seat max info
+        if m.group('MAX'):
+            hand.maxseats = int(m.group('MAX'))     # assume 4-max unless we have proof it's a larger/smaller game, since everleaf doesn't give seat max info
         
-        currencies = { u'€':'EUR', '$':'USD', '':'T$', None:'T$' }
+        currencies = { u'ˆ':'EUR', u'€':'EUR', '$':'USD', '':'T$'}
         mg = m.groupdict()
-        hand.gametype['currency'] = currencies[mg['CURRENCY']]
-
+        if mg['CURRENCY'] is not None:
+            hand.gametype['currency'] = currencies[mg['CURRENCY']]
+        else:
+            hand.gametype['currency'] = 'T$'
 
         t = self.re_TourneyInfoFromFilename.search(self.in_path)
         if t:
