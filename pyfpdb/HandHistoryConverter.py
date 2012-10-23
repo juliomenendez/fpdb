@@ -95,9 +95,9 @@ out_path  (default '-' = sys.stdout)
         # Tourney object used to store TourneyInfo when called to deal with a Summary file
         self.tourney = None
 
-        if in_path == '-':
-            self.in_fh = sys.stdin
-        self.out_fh = get_out_fh(out_path, self.import_parameters)
+        #if in_path == '-':
+        #    self.in_fh = sys.stdin
+        #self.out_fh = get_out_fh(out_path, self.import_parameters)
 
         self.compiledPlayers   = set()
         self.maxseats  = 0
@@ -438,6 +438,15 @@ or None if we fail to get the info """
 
     def readFile(self):
         """Open in_path according to self.codepage. Exceptions caught further up"""
+
+        """ Just data!! Yes, I am bastardizing this code"""
+        self.whole_file = self.in_path
+        self.obs = self.in_path
+        self.doc = self.in_path
+        return
+
+        """ CODE BELOW THIS LINE NOT EXECUTED!!"""
+
 
         if self.filetype == "text":
             for kodec in self.__listof(self.codepage):

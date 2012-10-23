@@ -4,7 +4,6 @@ from flask import request
 import sys
 import os
 import os.path
-import xml.dom.minidom
 
 import time
 import datetime
@@ -14,94 +13,73 @@ import Hand
 import Configuration
 from PokerStarsToFpdb import *
 import simplejson as json
+from hashlib import sha1
+import hmac
+import simplejson as json
+
+from pkrsess import convert_hand
 
 application = app = Flask(__name__)
-log = logging.getLogger("root")
-#Configuration.set_logfile("./fpdb-log.txt")
+
+logging.basicConfig(level=logging.DEBUG)
+
+log = logging.getLogger()
 config = Configuration.Config()
 
+consumer_secret = '12345'
 
-@app.route('/', methods=['GET', 'POST'])
-def hello_world():
-    hand_data = request.form['hand_data']
+log.info('Loading app')
 
-    con = PokerStars(config, hand_data, '-', 0)
+def ret_error(msg):
+    log.error(msg)
+    return json.dumps({'status' : 0, 'error' : msg})
 
-    # Create a list to hold the data object
-    hands = []
-
-    # Loop through and process hands
-    for hand in con.getProcessedHands():
-        h = {
-                'sitename' : hand.sitename,
-                'gametype' : hand.gametype,
-                'handText' : hand.handText,
-                'handid' : hand.handid,
-                'in_path' : hand.in_path,
-                'cancelled' : hand.cancelled,
-                'tablename' : hand.tablename,
-                'hero' : hand.hero,
-                'maxseats' : hand.maxseats,
-                'counted_seats' : hand.counted_seats,
-                'buttonpos' : hand.buttonpos,
-                'runItTimes' : hand.runItTimes,
-                'uncalledbets' : hand.uncalledbets,
-                'tourNo' : hand.tourNo,
-                'tourneyId' : hand.tourneyId,
-                'tourneyTypeId' : hand.tourneyTypeId,
-                'buyin' : hand.buyin,
-                'buyinCurrency' : hand.buyinCurrency,
-                'buyInChips' : hand.buyInChips,
-                'fee' : hand.fee,
-                'level' : hand.level,
-                'mixed' : hand.mixed,
-                'speed' : hand.speed,
-                'isSng' : hand.isSng,
-                'isRebuy' : hand.isRebuy,
-                'rebuyCost' : hand.rebuyCost,
-                'isAddOn' : hand.isAddOn,
-                'addOnCost' : hand.addOnCost,
-                'isKO' : hand.isKO,
-                'koBounty' : hand.koBounty,
-                'isMatrix' : hand.isMatrix,
-                'isShootout' : hand.isShootout,
-                'isZoom' : hand.isZoom,
-                'added' : hand.added,
-                'addedCurrency' : hand.addedCurrency,
-                'tourneyComment' : hand.tourneyComment,
-                'seating' : hand.seating,
-                'players' : hand.players,
-                'posted' : hand.posted,
-                'tourneysPlayersIds' : hand.tourneysPlayersIds,
-                'bets' : hand.bets,
-                'lastBet' : hand.lastBet,
-                'streets' : hand.streets,
-                'actions' : hand.actions,
-                'board' : hand.board,
-                'holecards' : hand.holecards,
-                'discards' : hand.discards,
-                'showdownStrings' : hand.showdownStrings,
-                'stacks' : hand.stacks,
-                'collected' : hand.collected,
-                'collectees' : hand.collectees,
-                'folded' : dict.fromkeys(hand.folded),
-                'dealt' : dict.fromkeys(hand.dealt),
-                'shown' : dict.fromkeys(hand.shown),
-                'mucked' : dict.fromkeys(hand.mucked),
-                'totalpot' : hand.totalpot,
-                'totalcollected' : hand.totalcollected,
-                'rake' : hand.rake,
-                'sym' : hand.sym
-
-            }
-        hands.append(h)
+def check_signature(secret, raw, sig):
+    raw = raw.encode('utf-8')
+    log.info('Checking signature')
+    hm = hmac.new(consumer_secret, raw, sha1)
+    res = hm.hexdigest()
+    log.debug('Provided signature ' + sig)
+    log.debug('Calculated signature ' + res)
+    return sig == res
 
 
-    return json.dumps(hands, use_decimal=True)
-    #return parsed_data
-    #return hand_data
+@app.route('/v1/parse', methods=['GET', 'POST'])
+def hand_convert():
+    log.info('Hand converter requested')
+
+    # Estract site
+    if 'site' in request.form:
+        site = request.form['site']
+    else:
+        site = 'pokerstars'
+
+    # Get consumer id and signature
+    if 'consumer_id' in request.form:
+        consumer_id = request.form['consumer_id']
+    else:
+        return ret_error('consumer_id not provided')
+
+    if 'signature' in request.form:
+        signature = request.form['signature']
+    else:
+        return ret_error('Signature not provided')
+
+    # Extract hand data from form
+    if 'hand_data' in request.form:
+        hand_data = request.form['hand_data']
+    else:
+        return ret_error('hand_data not provided')
+
+    log.debug('Length of data ' + str(len(hand_data)))
+
+    # Check the sigature is valud
+    if check_signature(consumer_secret, hand_data, '') == False:
+        return ret_error('Signature check failed')
+
+
+    return convert_hand(hand_data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0')
-
 
