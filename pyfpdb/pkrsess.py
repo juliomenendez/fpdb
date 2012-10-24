@@ -12,6 +12,7 @@ import Hand
 from PokerStarsToFpdb import *
 import simplejson as json
 
+config = Configuration.Config()
 
 def convert_hand(hand_data):
 
@@ -28,7 +29,7 @@ def convert_hand(hand_data):
                 'gametype' : hand.gametype,
                 'handText' : hand.handText,
                 'handid' : hand.handid,
-                'in_path' : hand.in_path,
+                #'in_path' : hand.in_path,
                 'cancelled' : hand.cancelled,
                 'tablename' : hand.tablename,
                 'hero' : hand.hero,

@@ -16,6 +16,7 @@ import simplejson as json
 from hashlib import sha1
 import hmac
 import simplejson as json
+import urllib
 
 from pkrsess import convert_hand
 
@@ -26,7 +27,7 @@ logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger()
 config = Configuration.Config()
 
-consumer_secret = '12345'
+consumer_secret = '12345a'
 
 log.info('Loading app')
 
@@ -35,7 +36,7 @@ def ret_error(msg):
     return json.dumps({'status' : 0, 'error' : msg})
 
 def check_signature(secret, raw, sig):
-    raw = raw.encode('utf-8')
+    raw = urllib.unquote(raw.encode('utf-8'))
     log.info('Checking signature')
     hm = hmac.new(consumer_secret, raw, sha1)
     res = hm.hexdigest()
@@ -74,7 +75,7 @@ def hand_convert():
     log.debug('Length of data ' + str(len(hand_data)))
 
     # Check the sigature is valud
-    if check_signature(consumer_secret, hand_data, '') == False:
+    if check_signature(consumer_secret, hand_data, signature) == False:
         return ret_error('Signature check failed')
 
 
