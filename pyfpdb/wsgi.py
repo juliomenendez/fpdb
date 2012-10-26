@@ -27,7 +27,7 @@ logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger()
 config = Configuration.Config()
 
-consumer_secret = '12345a'
+#consumer_secret = '12345a'
 
 log.info('Loading app')
 
@@ -56,15 +56,15 @@ def hand_convert():
         site = 'pokerstars'
 
     # Get consumer id and signature
-    if 'consumer_id' in request.form:
-        consumer_id = request.form['consumer_id']
-    else:
-        return ret_error('consumer_id not provided')
+    #if 'consumer_id' in request.form:
+    #    consumer_id = request.form['consumer_id']
+    #else:
+    #    return ret_error('consumer_id not provided')
 
-    if 'signature' in request.form:
-        signature = request.form['signature']
-    else:
-        return ret_error('Signature not provided')
+    #if 'signature' in request.form:
+    #    signature = request.form['signature']
+    #else:
+    #    return ret_error('Signature not provided')
 
     # Extract hand data from form
     if 'hand_data' in request.form:
@@ -75,8 +75,8 @@ def hand_convert():
     log.debug('Length of data ' + str(len(hand_data)))
 
     # Check the sigature is valud
-    if check_signature(consumer_secret, hand_data, signature) == False:
-        return ret_error('Signature check failed')
+    #if check_signature(consumer_secret, hand_data, signature) == False:
+    #    return ret_error('Signature check failed')
 
 
     return convert_hand(hand_data)
