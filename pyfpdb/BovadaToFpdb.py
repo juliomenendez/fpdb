@@ -37,6 +37,7 @@ class Bovada(HandHistoryConverter):
     filetype = "text"
     codepage = ("utf8", "cp1252")
     siteId   = 21 # Needs to match id entry in Sites database
+    summaryInFile = True
     sym = {'USD': "\$", 'T$': "", "play": ""}         # ADD Euro, Sterling, etc HERE
     substitutions = {
                      'LEGAL_ISO' : "USD",      # legal ISO currency codes
@@ -71,20 +72,27 @@ class Bovada(HandHistoryConverter):
                                "HOLDEM" : ('hold','holdem'),
                                 'OMAHA' : ('hold','omahahi'),
                            'OMAHA HiLo' : ('hold','omahahilo'),
-                                '7CARD' : ('stud', 'studhi'),
-                           '7CARD HiLo' : ('stud', 'studhilo'),
+                             'OMAHA_HL' : ('hold','omahahilo'),
+                                '7CARD' : ('stud','studhi'),
+                           '7CARD HiLo' : ('stud','studhilo'),
+                             '7CARD_HL' : ('hold','studhilo'),
+                      'HOLDEMZonePoker' : ('hold','holdem'),
+                       'OMAHAZonePoker' : ('hold','omahahi'),
+                      
                }
     currencies = {'$':'USD', '':'T$'}
 
     # Static regexes
     re_GameInfo     = re.compile(u"""
-          (Bovada|Bodog(\sUK|\sCanada)?)\sHand\s\#(?P<HID>[0-9]+):?\s+
-          (TBL\#(?P<TABLE>.+?)\s)?
-          (?P<GAME>HOLDEM|OMAHA|7CARD|7CARD\sHiLo|OMAHA\sHiLo)\s+
+          (Bovada|Bodog(\sUK|\sCanada|88)?)\sHand\s\#C?(?P<HID>[0-9]+):?\s+
+          ((?P<ZONE>Zone\sPoker\sID|TBL)\#(?P<TABLE>.+?)\s)?
+          (?P<GAME>HOLDEM|OMAHA|OMAHA_HL|7CARD|7CARD\sHiLo|OMAHA\sHiLo|7CARD_HL|HOLDEMZonePoker|OMAHAZonePoker)\s+
           (Tournament\s\#                # open paren of tournament info Tournament #2194767 TBL#1, 
           (?P<TOURNO>\d+)\sTBL\#(?P<TABLENO>\d+),
           \s)?
-          (?P<LIMIT>No\sLimit|Fixed\sLimit|Pot\sLimit)
+          (?P<HU>1\son\s1\s)? 
+          (?P<LIMIT>No\sLimit|Fixed\sLimit|Pot\sLimit)?
+          (\s?Normal\s?)?
           (-\sLevel\s\d+?\s
           \(?                            # open paren of the stakes
           (?P<CURRENCY>%(LS)s|)?
@@ -108,6 +116,7 @@ class Bovada(HandHistoryConverter):
           (%(LS)s)?(?P<CASH>[%(NUM)s]+)\sin\schips""" % substitutions, 
           re.MULTILINE|re.VERBOSE)
 
+    re_Identify     = re.compile(u'(Bovada|Bodog(\sUK|\sCanada|88)?)\sHand')
     re_SplitHands   = re.compile('\n\n+')
     re_TailSplitHands   = re.compile('(\n\n\n+)')
     re_Button       = re.compile('Dealer : Set dealer\/Bring in spot \[(?P<BUTTON>\d+)\]', re.MULTILINE)
@@ -122,16 +131,17 @@ class Bovada(HandHistoryConverter):
     re_PostBoth         = re.compile(r"^%(PLYR)s (\s?\[ME\]\s)?: Posts dead chip %(CUR)s(?P<SBBB>[%(NUM)s]+)" %  substitutions, re.MULTILINE)
     re_HeroCards        = re.compile(r"^%(PLYR)s  ?\[ME\] : Card dealt to a spot \[(?P<NEWCARDS>.+?)\]" % substitutions, re.MULTILINE)
     re_Action           = re.compile(r"""(?P<ACTION>
-                        ^%(PLYR)s\s(\s?\[ME\]\s)?:(\sD)?(?P<ATYPE>\s(B|b)ets|\sDouble\sbets|\sChecks|\sRaises|\sCalls?|\sFold|\sBring_in\schip|\sBig\sblind\/Bring\sin|\sAll\-in(\((raise|raise\-timeout)\))?|\sCard\sdealt\sto\sa\sspot)
+                        ^%(PLYR)s\s(\s?\[ME\]\s)?:(\sD)?(?P<ATYPE>\s(B|b)ets|\sDouble\sbets|\sChecks|\s(R|r)aises|\sCalls?|\sFold|\sBring_in\schip|\sBig\sblind\/Bring\sin|\sAll\-in(\((raise|raise\-timeout)\))?|\sCard\sdealt\sto\sa\sspot)
                         (\schip\sinfo)?(\(timeout\))?(\s%(CUR)s(?P<BET>[%(NUM)s]+)(\sto\s%(CUR)s(?P<BETTO>[%(NUM)s]+))?|\s\[(?P<NEWCARDS>.+?)\])?)"""
                          %  substitutions, re.MULTILINE|re.VERBOSE)
     re_ShowdownAction   = re.compile(r"^%(PLYR)s (?P<HERO>\s?\[ME\]\s)?: Card dealt to a spot \[(?P<CARDS>.*)\]" % substitutions, re.MULTILINE)
     #re_ShownCards       = re.compile("^Seat (?P<SEAT>[0-9]+): %(PLYR)s %(BRKTS)s(?P<SHOWED>showed|mucked) \[(?P<CARDS>.*)\]( and won \([.\d]+\) with (?P<STRING>.*))?" % substitutions, re.MULTILINE)
     re_CollectPot       = re.compile(r"^%(PLYR)s (\s?\[ME\]\s)?: Hand (R|r)esult(\-Side (P|p)ot)? %(CUR)s(?P<POT>[%(NUM)s]+)" %  substitutions, re.MULTILINE)
     re_Dealt            = re.compile(r"^%(PLYR)s (\s?\[ME\]\s)?: Card dealt to a spot" % substitutions, re.MULTILINE)
-    re_Buyin            = re.compile(r"\s-\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\.]+)-(?P<BIRAKE>[%(LS)s\d\.]+)?)\s-\s" % substitutions)
+    re_Buyin            = re.compile(r"(\s-\s\d+\s-\s(?P<TOURNAME>.+?))?\s-\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\.]+)-(?P<BIRAKE>[%(LS)s\d\.]+)?)\s-\s" % substitutions)
     re_Stakes           = re.compile(r"RING\s-\s(?P<CURRENCY>%(LS)s|)?(?P<SB>[%(NUM)s]+)-(%(LS)s)?(?P<BB>[%(NUM)s]+)\s-\s" % substitutions)
     re_Summary          = re.compile(r"\*\*\*\sSUMMARY\s\*\*\*")
+    re_Hole_Third       = re.compile(r"\*\*\*\s(3RD\sSTREET|HOLE\sCARDS)\s\*\*\*")
     #Small Blind : Hand result $19
     
     def compilePlayerRegexs(self,  hand):
@@ -169,7 +179,10 @@ class Bovada(HandHistoryConverter):
         if m: mg.update(m.groupdict())
 
         if 'LIMIT' in mg:
-            info['limitType'] = self.limits[mg['LIMIT']]
+            if not mg['LIMIT']:
+                info['limitType'] = 'nl'
+            else:
+                info['limitType'] = self.limits[mg['LIMIT']]
         if 'GAME' in mg:
             (info['base'], info['category']) = self.games[mg['GAME']]
             
@@ -187,6 +200,11 @@ class Bovada(HandHistoryConverter):
              
         if 'CURRENCY' in mg and mg['CURRENCY'] is not None:
             info['currency'] = self.currencies[mg['CURRENCY']]
+            
+        if 'Zone' in mg['GAME']:
+            info['fast'] = True
+        else:
+            info['fast'] = False
             
         if info['limitType'] == 'fl' and info['bb'] is not None:
             if info['type'] == 'ring':
@@ -219,7 +237,7 @@ class Bovada(HandHistoryConverter):
         for key in info:
             if key == 'DATETIME':
                 m1 = self.re_DateTime.finditer(info[key])
-                datetimestr = "2000-01-01 00:00:00"  # default used if time not found
+                datetimestr = "2000/01/01 00:00:00"  # default used if time not found
                 for a in m1:
                     datetimestr = "%s/%s/%s %s:%s:%s" % (a.group('Y'), a.group('M'),a.group('D'),a.group('H'),a.group('MIN'),a.group('S'))
                     #tz = a.group('TZ')  # just assume ET??
@@ -231,7 +249,7 @@ class Bovada(HandHistoryConverter):
             if key == 'TOURNO':
                 hand.tourNo = info[key]
             if key == 'BUYIN':
-                if hand.tourNo!=None:
+                if info['TOURNO']!=None:
                     if info[key] == 'Freeroll':
                         hand.buyin = 0
                         hand.fee = 0
@@ -259,10 +277,14 @@ class Bovada(HandHistoryConverter):
             if key == 'TABLE':
                 if info.get('TABLENO'):
                     hand.tablename = info.get('TABLENO')
+                elif info['ZONE'] and 'Zone' in info['ZONE']:
+                    hand.tablename = info['ZONE'] + ' ' +info[key]
                 else:
-                    hand.tablename = info[key]
+                    hand.tablename = info[key]        
             if key == 'MAX' and info[key] != None:
                 hand.maxseats = int(info[key])
+            if key == 'HU' and info[key] != None:
+                hand.maxseats = 2
                 
         if not hand.maxseats:
             hand.maxseats = 9          
@@ -307,9 +329,14 @@ class Bovada(HandHistoryConverter):
         if hand.gametype['base'] == "hold":
             street, firststreet = 'PREFLOP', 'PREFLOP'
         else:
-            street, firststreet = 'THIRD', 'THIRD'   
-        m = self.re_Action.finditer(hand.handText)
-        dealtIn = len(hand.players)# - len(hand.sitout)
+            street, firststreet = 'THIRD', 'THIRD'  
+        m = self.re_Action.finditer(self.re_Hole_Third.split(hand.handText)[0])
+        allinblind = 0
+        for action in m:
+            if action.group('ATYPE') == ' All-in':
+                allinblind+=1
+        m = self.re_Action.finditer(self.re_Hole_Third.split(hand.handText)[-1])
+        dealtIn = len(hand.players) - allinblind
         streetactions, streetno, players, i, contenders, bets = 0, 1, dealtIn, 0, dealtIn, 0
         for action in m:
             acts = action.groupdict()
@@ -317,7 +344,7 @@ class Bovada(HandHistoryConverter):
             player = self.playerSeatFromPosition('BovadaToFpdb.markStreets', hand.handid, action.group('PNAME'))
             if action.group('ATYPE') == ' Fold':
                 contenders -= 1
-            elif action.group('ATYPE') == ' Raises':
+            elif action.group('ATYPE') in (' Raises', ' raises'):
                 if streetno==1: bets = 1
                 streetactions, players = 0, contenders
             elif action.group('ATYPE') in (' Bets', ' bets', ' Double bets'):
@@ -361,7 +388,6 @@ class Bovada(HandHistoryConverter):
         for a in m:
             player = self.playerSeatFromPosition('BovadaToFpdb.readAntes', hand.handid, a.group('PNAME'))
             hand.addAnte(player, self.clearMoneyString(a.group('ANTE')))
-            self.allInBlind(hand, 'PREFLOP', a, 'ante')
     
     def readBringIn(self, hand):
         m = self.re_BringIn.search(hand.handText,re.DOTALL)
@@ -375,12 +401,14 @@ class Bovada(HandHistoryConverter):
             hand.gametype['bb'] = "2"
         
     def readBlinds(self, hand):
+        sb, bb = None, None
         hand.setUncalledBets(True)
         for a in self.re_PostSB.finditer(hand.handText):
             player = self.playerSeatFromPosition('BovadaToFpdb.readBlinds.postSB', hand.handid, a.group('PNAME'))
             hand.addBlind(player, 'small blind', self.clearMoneyString(a.group('SB')))
             if not hand.gametype['sb']:
                 hand.gametype['sb'] = self.clearMoneyString(a.group('SB'))
+            sb = self.clearMoneyString(a.group('SB'))
             self.allInBlind(hand, 'PREFLOP', a, 'small blind')
         for a in self.re_PostBB.finditer(hand.handText):
             player = self.playerSeatFromPosition('BovadaToFpdb.readBlinds.postBB', hand.handid, 'Big Blind')
@@ -388,16 +416,36 @@ class Bovada(HandHistoryConverter):
             self.allInBlind(hand, 'PREFLOP', a, 'big blind')
             if not hand.gametype['bb']:
                 hand.gametype['bb'] = self.clearMoneyString(a.group('BB'))
+            bb = self.clearMoneyString(a.group('BB'))
             if not hand.gametype['currency']:
                 if a.group('CURRENCY').find("$")!=-1:
                     hand.gametype['currency']="USD"
                 elif re.match("^[0-9+]*$", a.group('CURRENCY')):
                     hand.gametype['currency']="play"
+        for a in self.re_Action.finditer(self.re_Hole_Third.split(hand.handText)[0]):
+            if a.group('ATYPE') == ' All-in':
+                re_Ante_Plyr  = re.compile(r"^" + re.escape(a.group('PNAME')) + " (\s?\[ME\]\s)?: Ante chip %(CUR)s(?P<ANTE>[%(NUM)s]+)" % self.substitutions, re.MULTILINE)
+                m = self.re_Antes.search(hand.handText)
+                m1 = re_Ante_Plyr.search(hand.handText)
+                if (not m or m1):
+                    player = self.playerSeatFromPosition('BovadaToFpdb.readBlinds.postBB', hand.handid, a.group('PNAME'))
+                    if a.group('PNAME') == 'Big Blind':
+                        hand.addBlind(player, 'big blind', self.clearMoneyString(a.group('BET')))
+                        self.allInBlind(hand, 'PREFLOP', a, 'big blind')
+                    elif a.group('PNAME') == 'Small Blind' or (a.group('PNAME') == 'Dealer' and len(hand.players)==2):
+                        hand.addBlind(player, 'small blind', self.clearMoneyString(a.group('BET')))
+                        self.allInBlind(hand, 'PREFLOP', a, 'small blind')
+                elif m:
+                    player = self.playerSeatFromPosition('BovadaToFpdb.readAntes', hand.handid, a.group('PNAME'))
+                    hand.addAnte(player, self.clearMoneyString(a.group('BET')))
+                    self.allInBlind(hand, 'PREFLOP', a, 'antes')
         self.fixBlinds(hand)
         for a in self.re_PostBoth.finditer(hand.handText):
             player = self.playerSeatFromPosition('BovadaToFpdb.readBlinds.postBoth', hand.handid, a.group('PNAME'))
             hand.addBlind(player, 'both', self.clearMoneyString(a.group('SBBB')))
             self.allInBlind(hand, 'PREFLOP', a, 'both')
+        
+        
         
     def fixBlinds(self, hand):
         # See http://sourceforge.net/apps/mantisbt/fpdb/view.php?id=115
@@ -452,7 +500,7 @@ class Bovada(HandHistoryConverter):
             acts = action.groupdict()
             #print "DEBUG: %s, %s, %s" % (street, acts['PNAME'], acts['ATYPE']), action.group('BET')
             player = self.playerSeatFromPosition('BovadaToFpdb.readAction', hand.handid, action.group('PNAME'))
-            if action.group('ATYPE') not in (' Fold', ' Card dealt to a spot', ' Big blind/Bring in') and not hand.allInBlind:
+            if action.group('ATYPE') not in (' Checks', ' Fold', ' Card dealt to a spot', ' Big blind/Bring in') and not hand.allInBlind:
                 hand.setUncalledBets(False)
             if action.group('ATYPE') == ' Fold':
                 hand.addFold( street, player)
@@ -460,7 +508,7 @@ class Bovada(HandHistoryConverter):
                 hand.addCheck( street, player)
             elif action.group('ATYPE') == ' Calls' or action.group('ATYPE') == ' Call':
                 hand.addCall( street, player, self.clearMoneyString(action.group('BET')) )
-            elif action.group('ATYPE') in (' Raises', ' All-in(raise)', ' All-in(raise-timeout)'):
+            elif action.group('ATYPE') in (' Raises', ' raises', ' All-in(raise)', ' All-in(raise-timeout)'):
                 if action.group('BETTO'):
                     bet = self.clearMoneyString(action.group('BETTO'))
                 else:

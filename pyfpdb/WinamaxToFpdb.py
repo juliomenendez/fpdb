@@ -53,7 +53,7 @@ class Winamax(HandHistoryConverter):
                             'LS' : u"\$|\xe2\x82\xac|\u20ac|" # legal currency symbols - Euro(cp1252, utf-8)
                     }
 
-    limits = { 'no limit':'nl', 'pot limit' : 'pl','LIMIT':'fl'}
+    limits = { 'no limit':'nl', 'pot limit' : 'pl', 'fixed limit':'fl'}
 
     games = {                          # base, category
                                 "Holdem" : ('hold','holdem'),
@@ -63,6 +63,7 @@ class Winamax(HandHistoryConverter):
 
     # Static regexes
     # ***** End of hand R5-75443872-57 *****
+    re_Identify = re.compile(u'Winamax\sPoker\s\-\s(CashGame|Tournament\s")')
     re_SplitHands = re.compile(r'\n\n')
 
 
@@ -74,12 +75,12 @@ class Winamax(HandHistoryConverter):
             (?P<RING>CashGame)?
             (?P<TOUR>Tournament\s
             (?P<TOURNAME>.+)?\s
-            buyIn:\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\,.]+)?(\s\+?\s|-)(?P<BIRAKE>[%(LS)s\d\,.]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|Freeroll|Gratuit|Ticket\suniquement|Free|Ticket)?\s
+            buyIn:\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\,.]+)?(\s\+?\s|-)(?P<BIRAKE>[%(LS)s\d\,.]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|(?P<FREETICKET>[\sa-zA-Z]+))?\s
             (level:\s(?P<LEVEL>\d+))?
             .*)?
             \s-\sHandId:\s\#(?P<HID1>\d+)-(?P<HID2>\d+)-(?P<HID3>\d+).*\s  # REB says: HID3 is the correct hand number
             (?P<GAME>Holdem|Omaha)\s
-            (?P<LIMIT>no\slimit|pot\slimit)\s
+            (?P<LIMIT>fixed\slimit|no\slimit|pot\slimit)\s
             \(
             (((%(LS)s)?(?P<ANTE>[.0-9]+)(%(LS)s)?)/)?
             ((%(LS)s)?(?P<SB>[.0-9]+)(%(LS)s)?)/
@@ -110,7 +111,8 @@ class Winamax(HandHistoryConverter):
 # Seat 1: some_player (5€)
 # Seat 2: some_other_player21 (6.33€)
 
-    re_PlayerInfo = re.compile(u'Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.*)\s\((%(LS)s)?(?P<CASH>[.0-9]+)(%(LS)s)?\)' % substitutions)
+    re_PlayerInfo        = re.compile(u'Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.*)\s\((%(LS)s)?(?P<CASH>[.0-9]+)(%(LS)s)?\)' % substitutions)
+    re_PlayerInfoSummary = re.compile(u'Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.+?)\s' % substitutions)
 
     def compilePlayerRegexs(self, hand):
         players = set([player[1] for player in hand.players])
@@ -138,11 +140,10 @@ class Winamax(HandHistoryConverter):
 
             self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\scollected\s(%(CUR)s)?(?P<POT>[\.\d]+)(%(CUR)s)?.*' % subst)
             self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): %(PLYR)s showed \[(?P<CARDS>.*)\].*" % subst, re.MULTILINE)
-            self.re_sitsOut    = re.compile('(?P<PNAME>.*) sits out')
 
     def readSupportedGames(self):
         return [
-                #["ring", "hold", "fl"], need Lim_Blinds
+                ["ring", "hold", "fl"],
                 ["ring", "hold", "nl"],
                 ["ring", "hold", "pl"],
                 ["tour", "hold", "fl"],
@@ -188,11 +189,8 @@ class Winamax(HandHistoryConverter):
             info['bb'] = mg['BB']
             
         if info['limitType'] == 'fl' and info['bb'] is not None:
-            if info['type'] == 'ring':
-                pass
-            else:
-                info['sb'] = str((Decimal(mg['SB'])/2).quantize(Decimal("0.01")))
-                info['bb'] = str(Decimal(mg['SB']).quantize(Decimal("0.01")))
+            info['sb'] = str((Decimal(mg['SB'])/2).quantize(Decimal("0.01")))
+            info['bb'] = str(Decimal(mg['SB']).quantize(Decimal("0.01")))
 
         return info
 
@@ -247,7 +245,7 @@ class Winamax(HandHistoryConverter):
                         if k in info.keys() and info[k]:
                             info[k] = info[k].replace(',','.')
 
-                    if info[key] in ('Gratuit', 'Freeroll', 'Ticket uniquement', 'Ticket'):
+                    if info['FREETICKET'] is not None:
                         hand.buyin = 0
                         hand.fee = 0
                         hand.buyinCurrency = "FREE"
@@ -299,17 +297,24 @@ class Winamax(HandHistoryConverter):
             if key == 'LEVEL':
                 hand.level = info[key]
 
-        m =  self.re_Button.search(hand.handText)
-        hand.buttonpos = m.groupdict().get('BUTTON', None)
-
         hand.mixed = None
 
     def readPlayerStacks(self, hand):
-        #log.debug("readplayerstacks re: '%s'" % self.re_PlayerInfo)
-        m = self.re_PlayerInfo.finditer(hand.handText)
-        for a in m:
-            hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
+        # Split hand text for Winamax, as the players listed in the hh preamble and the summary will differ
+        # if someone is sitting out.
+        # Going to parse both and only add players in the summary.
+        handsplit = hand.handText.split('*** SUMMARY ***')
+        if len(handsplit)!=2:
+            raise FpdbHandPartial(_("Hand is not cleanly split into pre and post Summary %s.") % hand.handid)
+        pre, post = handsplit
+        m = self.re_PlayerInfo.finditer(pre)
+        plist = {}
 
+        # Get list of players in header.
+        for a in m:
+            if plist.get(a.group('PNAME')) is None:
+                hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
+                plist[a.group('PNAME')] = [int(a.group('SEAT')), a.group('CASH')]
 
     def markStreets(self, hand):
         m =  re.search(r"\*\*\* ANTE\/BLINDS \*\*\*(?P<PREFLOP>.+(?=\*\*\* FLOP \*\*\*)|.+)"

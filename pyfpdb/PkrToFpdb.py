@@ -35,7 +35,7 @@ class Pkr(HandHistoryConverter):
     siteId   = 13 # Needs to match id entry in Sites database
 
     mixes = { 'HORSE': 'horse', '8-Game': '8game', 'HOSE': 'hose'} # Legal mixed games
-    sym = {'USD': "\$", 'T$': "", "EUR": "\xe2\x82\xac", "GBP": "\£"} # ADD Euro, Sterling, etc HERE
+    sym = {'USD': "\$", 'T$': "", "EUR": u"\u20ac", "GBP": u"\£"} # ADD Euro, Sterling, etc HERE
     substitutions = {
                      'LEGAL_ISO' : "USD|EUR|GBP",    # legal ISO currency codes
                             'LS' : u"\$|\xe2\x82\xac|\u20ac|\£|", # legal currency symbols - Euro(cp1252, utf-8)
@@ -46,7 +46,7 @@ class Pkr(HandHistoryConverter):
     games = {                          # base, category
                               "HOLD'EM" : ('hold','holdem'),
                                 'OMAHA' : ('hold','omahahi'),
-                     'FIXMEOmaha Hi/Lo' : ('hold','omahahilo'),
+                          'OMAHA HI/LO' : ('hold','omahahilo'),
                      'FIXME5 Card Draw' : ('draw','fivedraw')
                }
     currencies = { u'€':'EUR', '$':'USD', '':'T$', u'£':'GBP' }
@@ -58,11 +58,11 @@ class Pkr(HandHistoryConverter):
 
     # Static regexes
     re_GameInfo     = re.compile(u"""
-          Table\s\#\d+\s\-\s((Tournament|STT)\s\#\s?(?P<TOURNO>\d+)(\sTable\s\#)?)?(?P<TABLE>[a-zA-Z\ \d]+)?\s
+          Table\s\#\d+\s\-\s((Tournament|STT)\s\#\s?(?P<TOURNO>\d+)(\sTable\s\#)?)?(?P<TABLE>.+?)?\s
           Starting\sHand\s\#(?P<HID>[0-9]+)\s
           Start\stime\sof\shand:\s(?P<DATETIME>.*)\s
           Last\sHand\s(n/a|\#[0-9]+)\s
-          Game\sType:\s(?P<GAME>HOLD'EM|OMAHA)\s
+          Game\sType:\s(?P<GAME>HOLD'EM|OMAHA|OMAHA\sHI/LO)\s
           Limit\sType:\s(?P<LIMIT>NO\sLIMIT|LIMIT|POT\sLIMIT)\s
           Table\sType:\s(RING|TOURNAMENT)\s
           Money\sType:\s(REAL\sMONEY|TOURNAMENT\sCHIPS)\s
@@ -84,6 +84,7 @@ class Pkr(HandHistoryConverter):
           Moving\sButton\sto\sseat\s(?P<BUTTON>\d+)\s""", 
           re.MULTILINE|re.VERBOSE)
 
+    re_Identify     = re.compile(u'Starting\sHand\s\#\d+')
     re_SplitHands   = re.compile('\n\n+')
     re_TailSplitHands   = re.compile('(\n\n\n+)')
     re_Button       = re.compile('Seat #(?P<BUTTON>\d+) is the button', re.MULTILINE)

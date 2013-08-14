@@ -34,7 +34,7 @@ Py2exe script for fpdb.
 #- You will frequently get messages about missing .dll files.just assume other
 #  person will have them? we have copyright issues including some dll's
 #- If it works, you'll have a new dir  fpdb-version  which should
-#  contain 2 dirs; gfx and pyfpdb and run_fpdb.bat
+#  contain 2 dirs; gfx and pyfpdb and two bat files : run_fpdb.bat and install_fpdb.bat
 
 #  See walkthrough in packaging directory for versions used
 #  Very useful guide here : http://www.no-ack.org/2010/09/complete-guide-to-py2exe-for-pygtk.html
@@ -120,8 +120,11 @@ packagedir = rootdir+'packaging/windows/'
 gfxdir = rootdir+'gfx/'
 sys.path.append(pydir)  # allows fpdb modules to be found in the setup() below
 tofpdb_file_list = fnmatch.filter(os.listdir(pydir), '*ToFpdb.py')
+summary_file_list = fnmatch.filter(os.listdir(pydir), '*Summary.py')
 #convert to module list by removing extensions in this list comprehension
 tofpdb_module_list = [os.path.splitext(filename)[0] for filename in tofpdb_file_list]
+summary_module_list = [os.path.splitext(filename)[0] for filename in summary_file_list]
+fpdb_aux_module_list = ['Hello','Aux_Hud','Aux_Classic_Hud','Mucked']
 
 print "\n" + r"Output will be created in "+distdir
 
@@ -155,10 +158,10 @@ setup(
               ],
 
     options = {'py2exe': {
-                      'packages'    : ['encodings', 'matplotlib'],
+                      'packages'    : ['encodings', 'matplotlib', 'BeautifulSoup'],
                                                             
                       'includes'    : ['gio', 'cairo', 'pango', 'pangocairo'
-				      ,'atk', 'gobject']+tofpdb_module_list,
+				      ,'atk', 'gobject'] + tofpdb_module_list + summary_module_list + fpdb_aux_module_list,
                                       
                       'excludes'    : ['_tkagg', '_agg2', 'cocoaagg', 'fltkagg'],
                       
@@ -173,7 +176,7 @@ setup(
     # Note: only include files here which are to be put into the package pyfpdb folder or subfolders
 
     data_files = [('', glob.glob(rootdir+'*.txt'))
-                 ,('', [pydir+'HUD_config.xml.example',pydir+'Cards01.png', pydir+'logging.conf'])
+                 ,('', [pydir+'HUD_config.xml.example',pydir+'logging.conf'])
                  ] + matplotlib.get_py2exe_datafiles()
 )
 
@@ -187,6 +190,7 @@ copy_tree (pydir+r'locale', os.path.join(r'dist', 'locale'))
 # create distribution folder and populate with gfx + bat
 copy_tree (gfxdir, os.path.join(distdir, 'gfx'))
 copy_file (packagedir+'run_fpdb.bat', distdir)
+copy_file (packagedir+'install_fpdb.bat', distdir)
 
 print "*** Renaming dist folder as pyfpdb folder ***"
 dest = os.path.join(distdir, 'pyfpdb')

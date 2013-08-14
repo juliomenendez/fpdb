@@ -18,7 +18,6 @@
 import L10n
 _ = L10n.get_translation()
 
-import threading
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -44,7 +43,7 @@ if __name__ == "__main__":
 # logging has been set up in fpdb.py or HUD_main.py, use their settings:
 log = logging.getLogger("filter")
 
-class Filters(threading.Thread):
+class Filters:
     MIN_DATE = '1970-01-02 00:00:00'
     MAX_DATE = '2100-12-12 23:59:59'
     def __init__(self, db, config, qdict, display = {}, debug=True):
@@ -59,7 +58,7 @@ class Filters(threading.Thread):
         self.gameName = {"27_1draw"  : _("Single Draw 2-7 Lowball")
                         ,"27_3draw"  : _("Triple Draw 2-7 Lowball")
                         ,"a5_3draw"  : _("Triple Draw A-5 Lowball")
-                        ,"5studhi"   : _("5 Card Stud")
+                        ,"5_studhi"   : _("5 Card Stud")
                         ,"badugi"    : _("Badugi")
                         ,"fivedraw"  : _("5 Card Draw")
                         ,"holdem"    : _("Hold'em")
@@ -68,6 +67,13 @@ class Filters(threading.Thread):
                         ,"razz"      : _("Razz")
                         ,"studhi"    : _("7 Card Stud")
                         ,"studhilo"  : _("7 Card Stud Hi/Lo")
+                        ,"5_omahahi" : _("5 Card Omaha")
+                        ,"5_omaha8"  : _("5 Card Omaha Hi/Lo")
+                        ,"cour_hi"   : _("Courchevel")
+                        ,"cour_hilo" : _("Courchevel Hi/Lo")
+                        ,"2_holdem"  : _("Double hold'em")
+                        ,"irish"     : _("Irish")
+                        ,"6_omahahi" : _("6 Card Omaha")
                         }
 
         self.currencyName = {"USD" : _("US Dollar")

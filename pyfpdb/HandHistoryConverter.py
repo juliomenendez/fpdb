@@ -75,7 +75,7 @@ out_path  (default '-' = sys.stdout)
         self.config = config
         self.import_parameters = self.config.get_import_parameters()
         self.sitename = sitename
-        log.info("HandHistory init - %s site, %s subclass, in_path '%s'; out_path '%s'" 
+        log.info("HandHistory init - %s site, %s subclass, in_path '%r'; out_path '%r'"
                  % (self.sitename, self.__class__, in_path, out_path) ) # should use self.filter, not self.sitename
 
         self.index     = index
@@ -91,6 +91,7 @@ out_path  (default '-' = sys.stdout)
         self.numErrors = 0
         self.numPartial = 0
         self.isCarraige = False
+        self.autoPop = False
 
         # Tourney object used to store TourneyInfo when called to deal with a Summary file
         self.tourney = None
@@ -148,7 +149,7 @@ HandHistoryConverter: '%(sitename)s'
                     self.numErrors += 1
                     lastParsed = 'error'
                     log.error(_("FpdbParseError for file '%s'") % self.in_path)
-            if lastParsed in ('partial', 'error'):
+            if lastParsed in ('partial', 'error') and self.autoPop:
                 self.index -= len(handsList[-1])
                 if self.isCarraige:
                      self.index -= handsList[-1].count('\n')
@@ -169,7 +170,9 @@ HandHistoryConverter: '%(sitename)s'
                 log.info(_("Summary file '%s' correctly parsed (took %.3f seconds)") % (self.in_path, endtime - starttime))
             else :
                 log.warning(_("Error converting summary file '%s' (took %.3f seconds)") % (self.in_path, endtime - starttime))
-
+    
+    def setAutoPop(self, value):
+        self.autoPop = value
                 
     def progressNotify(self):
         "A callback to the interface while events are pending"
@@ -217,6 +220,8 @@ HandHistoryConverter: '%(sitename)s'
         return handlist
 
     def processHand(self, handText):
+        if self.isPartial(handText):
+            raise FpdbHandPartial(_("Could not identify as a %s hand") % self.sitename)
         if self.copyGameHeader:
             gametype = self.parseHeader(handText, self.whole_file)
         else:
@@ -231,8 +236,10 @@ HandHistoryConverter: '%(sitename)s'
             # See if gametype is supported.
             if 'mix' not in gametype: gametype['mix'] = 'none'
             if 'ante' not in gametype: gametype['ante'] = 0
-            if 'zoom' not in gametype: gametype['zoom'] = False
-            if 'cap' not in gametype: gametype['cap'] = False
+            if 'buyinType' not in gametype: gametype['buyinType'] = 'regular'
+            if 'fast' not in gametype: gametype['fast'] = False
+            if 'newToGame' not in gametype: gametype['newToGame'] = False
+            if 'homeGame' not in gametype: gametype['homeGame'] = False
             type = gametype['type']
             base = gametype['base']
             limit = gametype['limitType']
@@ -255,8 +262,15 @@ HandHistoryConverter: '%(sitename)s'
         else:
             log.error(_("%s Unsupported game type: %s") % (self.sitename, gametype))
             # TODO: pity we don't know the HID at this stage. Log the entire hand?
-
-
+            
+    def isPartial(self, handText):
+        count = 0
+        for m in self.re_Identify.finditer(handText):
+            count += 1
+        if count!=1:
+            return True
+        return False
+    
     # These functions are parse actions that may be overridden by the inheriting class
     # This function should return a list of lists looking like:
     # return [["ring", "hold", "nl"], ["tour", "hold", "nl"]]
@@ -547,9 +561,9 @@ or None if we fail to get the info """
             #log.debug("changeTimeZone: offset=") + str(offset))
         else: offset=0
 
-        if (givenTimezone=="ET" or givenTimezone=="EST" or givenTimezone=="EDT"):
+        if givenTimezone in ("ET", "EST", "EDT"):
             givenTZ = timezone('US/Eastern')
-        elif (givenTimezone=="CET" or givenTimezone=="CEST" or givenTimezone=="MESZ"):
+        elif givenTimezone in ("CET", "CEST", "MEZ", "MESZ", "HAEC"):
             #since CEST will only be used in summer time it's ok to treat it as identical to CET.
             givenTZ = timezone('Europe/Berlin')
             #Note: Daylight Saving Time is standardised across the EU so this should be fine
@@ -562,15 +576,15 @@ or None if we fail to get the info """
              givenTZ = timezone('Europe/London')
         elif givenTimezone == 'WET': # WET is GMT with daylight saving delta
             givenTZ = timezone('WET')
-        elif givenTimezone == 'HST': # Hawaiian Standard Time
+        elif givenTimezone in ('HT', 'HST', 'HDT'): # Hawaiian Standard Time
             givenTZ = timezone('US/Hawaii')
         elif givenTimezone == 'AKT': # Alaska Time
             givenTZ = timezone('US/Alaska')
-        elif givenTimezone == 'PT': # Pacific Time
+        elif givenTimezone in ('PT', 'PST', 'PDT'): # Pacific Time
             givenTZ = timezone('US/Pacific')
-        elif givenTimezone == 'MT': # Mountain Time
+        elif givenTimezone in ('MT', 'MST', 'MDT'): # Mountain Time
             givenTZ = timezone('US/Mountain')
-        elif givenTimezone == 'CT': # Central Time
+        elif givenTimezone in ('CT', 'CST', 'CDT'): # Central Time
             givenTZ = timezone('US/Central')
         elif givenTimezone == 'AT': # Atlantic Time
             givenTZ = timezone('Canada/Atlantic')
@@ -580,11 +594,13 @@ or None if we fail to get the info """
             givenTZ = timezone('America/Argentina/Buenos_Aires')
         elif givenTimezone == 'BRT': # Brasilia Time
             givenTZ = timezone('America/Sao_Paulo')
+        elif givenTimezone == 'VET':
+            givenTZ = timezone('America/Caracas')
         elif givenTimezone == 'COT':
             givenTZ = timezone('America/Bogota')
         elif givenTimezone in ('EET', 'EEST'): # Eastern European Time
             givenTZ = timezone('Europe/Bucharest')
-        elif givenTimezone in ('MSK', 'MESZ', 'MSKS'): # Moscow Standard Time
+        elif givenTimezone in ('MSK', 'MESZ', 'MSKS', 'GST'): # Moscow Standard Time
             givenTZ = timezone('Europe/Moscow')
         elif givenTimezone in ('YEKT','YEKST'):
             givenTZ = timezone('Asia/Yekaterinburg')
@@ -592,6 +608,8 @@ or None if we fail to get the info """
             givenTZ = timezone('Asia/Krasnoyarsk')
         elif givenTimezone == 'IST': # India Standard Time
             givenTZ = timezone('Asia/Kolkata')
+        elif givenTimezone == 'ICT':
+            givenTZ = timezone('Asia/Bangkok')
         elif givenTimezone == 'CCT': # China Coast Time
             givenTZ = timezone('Australia/West')
         elif givenTimezone == 'JST': # Japan Standard Time
@@ -608,10 +626,12 @@ or None if we fail to get the info """
             givenTZ = timezone('Australia/Sydney')
         elif givenTimezone == 'NZT': # New Zealand Time
             givenTZ = timezone('Pacific/Auckland')
+        elif givenTimezone == 'UTC': # Universal time co-ordinated
+            givenTZ = pytz.UTC
 
         if givenTZ is None:
             # do not crash if timezone not in list, just return UTC localized time
-            log.warn(_("Timezone conversion not supported") + ": " + givenTimezone + " " + str(time))
+            log.error(_("Timezone conversion not supported") + ": " + givenTimezone + " " + str(time))
             givenTZ = pytz.UTC
             return givenTZ.localize(time)
 
@@ -676,7 +696,7 @@ def getTableNoRe(config, sitename, *args, **kwargs):
 
 def getSiteHhc(config, sitename):
     "Returns HHC class for current site"
-    hhcName = config.supported_sites[sitename].converter
+    hhcName = config.hhcs[sitename].converter
     hhcModule = __import__(hhcName)
     return getattr(hhcModule, hhcName[:-6])
 

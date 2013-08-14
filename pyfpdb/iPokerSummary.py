@@ -28,21 +28,24 @@ from TourneySummary import *
 
 class iPokerSummary(TourneySummary):
     substitutions = {
-                     'LS'  : u"\$|\xe2\x82\xac|\xe2\u201a\xac|\u20ac|\xc2\xa3|\£|",
+                     'LS'  : u"\$|\xe2\x82\xac|\xe2\u201a\xac|\u20ac|\xc2\xa3|\£|RSD|",
                      'PLYR': r'(?P<PNAME>[a-zA-Z0-9]+)',
                      'NUM' : r'.,0-9',
                     }
-    currencies = { u'€':'EUR', '$':'USD', '':'T$', u'£':'GBP' }
+    currencies = { u'€':'EUR', '$':'USD', '':'T$', u'£':'GBP', 'RSD': 'RSD'}
 
     limits = { 'No Limit':'nl', 'Pot Limit':'pl', 'Limit':'fl', 'LIMIT':'fl' }
-    
+
     months = { 'Jan':1, 'Feb':2, 'Mar':3, 'Apr':4, 'May':5, 'Jun':6, 'Jul':7, 'Aug':8, 'Sep':9, 'Oct':10, 'Nov':11, 'Dec':12}
-    
+
     games = {              # base, category
                 '7 Card Stud L' : ('stud','studhi'),
-                '5 Card Stud L' : ('stud','5studhi'),
+                '5 Card Stud L' : ('stud','5_studhi'),
                     'Holdem NL' : ('hold','holdem'),
+                   u'Holdem БЛ' : ('hold','holdem'),
                     'Holdem SL' : ('hold','holdem'), #Spanish NL
+                    'Holdem LZ' : ('hold','holdem'), #Limit
+                    'Holdem PL' : ('hold','holdem'), #Limit
                      'Holdem L' : ('hold','holdem'),
                      'Omaha PL' : ('hold','omahahi'),
                'Omaha Hi-Lo PL' : ('hold','omahahilo'),
@@ -50,11 +53,12 @@ class iPokerSummary(TourneySummary):
                       'Omaha L' : ('hold','omahahi'),
                'Omaha Hi-Lo LP' : ('hold','omahahilo'),
                 'Omaha Hi-Lo L' : ('hold','omahahilo'),
-                     
             }
+    
+    re_Identify = re.compile(u'<game\sgamecode=')
 
-    re_GameType = re.compile(r"""
-            <gametype>(?P<GAME>7\sCard\sStud\sL|Holdem\sNL|Holdem\sL|Omaha\s(L|PL|LP)|Omaha\sHi\-Lo\s(L|PL|LP))(\s(%(LS)s)(?P<SB>[.0-9]+)/(%(LS)s)(?P<BB>[.0-9]+))?</gametype>\s+?
+    re_GameType = re.compile(ur"""
+            <gametype>(?P<GAME>(5|7)\sCard\sStud\sL|Holdem\s(NL|SL|L|LZ|PL|БЛ)|Omaha\s(L|PL|LP)|Omaha\sHi\-Lo\s(L|PL|LP)|LH\s(?P<LSB>[%(NUM)s]+)/(?P<LBB>[%(NUM)s]+).+?)(\s(%(LS)s)?(?P<SB>[%(NUM)s]+)/(%(LS)s)?(?P<BB>[%(NUM)s]+))?</gametype>\s+?
             <tablename>(?P<TABLE>.+)?</tablename>\s+?
             (<(tablecurrency|tournamentcurrency)>.*</(tablecurrency|tournamentcurrency)>\s+?)?
             <duration>.+</duration>\s+?
@@ -67,7 +71,7 @@ class iPokerSummary(TourneySummary):
     re_GameInfoTrny = re.compile(r"""
                 <tournamentname>(?P<NAME>.+?)</tournamentname><place>(?P<PLACE>.+?)</place>
                 <buyin>(?P<BUYIN>(?P<BIAMT>.+?)(\+(?P<BIRAKE>.+?))?)</buyin>\s+?
-                <totalbuyin>(?P<TOTBUYIN>.+)</totalbuyin>\s+?
+                <totalbuyin>(?P<TOTBUYIN>.*)</totalbuyin>\s+?
                 <ipoints>.+?</ipoints>\s+?
                 <win>(?P<CURRENCY>%(LS)s)?(?P<WIN>([%(NUM)s]+)|.+?)</win>
             """ % substitutions, re.MULTILINE|re.VERBOSE)
@@ -75,7 +79,8 @@ class iPokerSummary(TourneySummary):
     re_TotalBuyin = re.compile(r"""(?P<BUYIN>(?P<BIAMT>[%(LS)s%(NUM)s]+)\s\+\s?(?P<BIRAKE>[%(LS)s%(NUM)s]+)?)""" % substitutions, re.MULTILINE|re.VERBOSE)
     re_DateTime1 = re.compile("""(?P<D>[0-9]{2})\-(?P<M>[a-zA-Z]{3})\-(?P<Y>[0-9]{4})\s+(?P<H>[0-9]+):(?P<MIN>[0-9]+)(:(?P<S>[0-9]+))?""", re.MULTILINE)
     re_DateTime2 = re.compile("""(?P<D>[0-9]{2})\/(?P<M>[0-9]{2})\/(?P<Y>[0-9]{4})\s+(?P<H>[0-9]+):(?P<MIN>[0-9]+)(:(?P<S>[0-9]+))?""", re.MULTILINE)
-
+    re_Place     = re.compile("\d+")
+    
     codepage = ["utf-8"]
 
     @staticmethod
@@ -107,7 +112,7 @@ class iPokerSummary(TourneySummary):
         if self.games[mg['GAME']][0] == 'stud':
             self.gametype['limitType']  = 'fl'
         if self.games[mg['GAME']][0] == 'hold':
-            if mg['GAME'][-2:] == 'NL' or mg['GAME'][-2:] == 'SL':
+            if mg['GAME'][-2:] == 'NL' or mg['GAME'][-2:] == 'SL' or mg['GAME'][-2:] == u'БЛ':
                 self.gametype['limitType']  = 'nl'
             elif mg['GAME'][-2:] == 'PL' or mg['GAME'][-2:] == 'LP':
                 self.gametype['limitType'] = 'pl'
@@ -147,18 +152,16 @@ class iPokerSummary(TourneySummary):
                 self.fee   = 0
                 self.prizepool = None
                 self.entries   = None
-                
+
                 if mg2['CURRENCY']:
                     self.currency = self.currencies[mg2['CURRENCY']]
-                rank = mg2['PLACE']
-                if rank in ('N/A', 'N/D', 'N/V'):
-                    rank = None
-                    winnings = None
-                else:
+                rank, winnings = None, None
+                if self.re_Place.search(mg2['PLACE']):
+                    rank     = int(mg2['PLACE'])
                     winnings = int(100*self.convert_to_decimal(mg2['WIN']))
-                    
+
                 self.tourneyName = mg2['NAME'][:40]
-                
+
                 if not mg2['BIRAKE'] and mg2['TOTBUYIN']:
                     m3 = self.re_TotalBuyin.search(mg2['TOTBUYIN'])
                     if m3:
@@ -183,9 +186,7 @@ class iPokerSummary(TourneySummary):
 
 
     def convert_to_decimal(self, string):
-        dec = string.strip(u'$£€&euro;\u20ac')
-        dec = dec.replace(u',','.')
-        dec = dec.replace(u' ','')
+        dec = self.clearMoneyString(string)
         m = self.re_Buyin.search(dec)
         if m:
             dec = Decimal(m.group('BUYIN'))

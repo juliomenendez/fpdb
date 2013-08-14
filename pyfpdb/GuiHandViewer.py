@@ -23,12 +23,14 @@ import L10n
 _ = L10n.get_translation()
 
 
-from Hand import *
+import Hand
+import Card
 import Configuration
 import Database
 import SQL
-import fpdb_import
 import Filters
+import Deck
+
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -161,7 +163,6 @@ class GuiHandViewer:
 
         self.playing = False
 
-        self.deck_image = "Cards01.png" #FIXME: read from config (requires deck to be defined somewhere appropriate
         self.tableImage = None
         self.playerBackdrop = None
         self.cardImages = None
@@ -169,20 +170,21 @@ class GuiHandViewer:
         #      replicate the copy_area() function from Pixbuf in the Pixmap class
         #      cardImages is used for the tables display card_images is used for the
         #      table display. Sooner or later we should probably use one or the other.
-        card_images = self.init_card_images(config)
-
+        self.deck_instance = Deck.Deck(self.config, height=42, width=30)
+        card_images = self.init_card_images(self.config)
+       
     def init_card_images(self, config):
         suits = ('s', 'h', 'd', 'c')
         ranks = (14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2)
-        pb = gtk.gdk.pixbuf_new_from_file(config.execution_path(self.deck_image))
 
         for j in range(0, 13):
             for i in range(0, 4):
                 loc = Card.cardFromValueSuit(ranks[j], suits[i])
-                card_images[loc] = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, pb.get_has_alpha(), pb.get_bits_per_sample(), 30, 42)
-                pb.copy_area(30*j, 42*i, 30, 42, card_images[loc], 0, 0)
-        card_images[0] = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, pb.get_has_alpha(), pb.get_bits_per_sample(), 30, 42)
-        pb.copy_area(30*13, 0, 30, 42, card_images[0], 0, 0)
+                card_image = self.deck_instance.card(suits[i], ranks[j])
+                #must use copy(), method_instance not usable in global variable
+                card_images[loc] = card_image.copy()
+        back_image = self.deck_instance.back()
+        card_images[0] = back_image.copy()
         return card_images
 
     def loadHands(self, button, userdata):
@@ -487,28 +489,10 @@ class GuiHandViewer:
         # We need at least sitename, gametype, handid
         # for the Hand.__init__
 
-        ####### Shift this section in Database.py for all to use ######
-        q = self.sql.query['get_gameinfo_from_hid']
-        q = q.replace('%s', self.sql.query['placeholder'])
-
-        c = self.db.get_cursor()
-
-        c.execute(q, (handid,))
-        res = c.fetchone()
-        gametype = {'category':res[1],'base':res[2],'type':res[3],'limitType':res[4],'hilo':res[5],'sb':res[6],'bb':res[7], 'currency':res[10]}
-        #FIXME: smallbet and bigbet are res[8] and res[9] respectively
-        ###### End section ########
-        if gametype['base'] == 'hold':
-            h = HoldemOmahaHand(config = self.config, hhc = None, sitename=res[0], gametype = gametype, handText=None, builtFrom = "DB", handid=handid)
-        elif gametype['base'] == 'stud':
-            h = StudHand(config = self.config, hhc = None, sitename=res[0], gametype = gametype, handText=None, builtFrom = "DB", handid=handid)
-        elif gametype['base'] == 'draw':
-            h = DrawHand(config = self.config, hhc = None, sitename=res[0], gametype = gametype, handText=None, builtFrom = "DB", handid=handid)
+        h = Hand.hand_factory(handid, self.config, self.db)
 
         # Set the hero for this hand using the filter for the sitename of this hand
-        h.hero = self.filters.getHeroes()[res[0]]
-
-        h.select(self.db, handid)
+        h.hero = self.filters.getHeroes()[h.sitename]
         return h
 
     '''

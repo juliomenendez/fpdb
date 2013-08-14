@@ -109,7 +109,7 @@ class PacificPoker(HandHistoryConverter):
 
     re_HandInfo     = re.compile("""
           ^(
-            (Table\s(?P<TABLE>[-\ \#a-zA-Z\d]+)\s)
+            (Table\s(?P<TABLE>[-\ \#a-zA-Z\d]+?)\s)
             |
             (Tournament\s\#(?P<TOURNO>\d+)\s
               (
@@ -124,12 +124,14 @@ class PacificPoker(HandHistoryConverter):
               \s-\sTable\s\#(?P<TABLEID>\d+)\s
             )
            )
+          ((?P<MAX>\d+)\sMax\s)?
           (\(Real\sMoney\))?
           (?P<PLAY>\(Practice\sPlay\))?
           \\n
           Seat\s(?P<BUTTON>[0-9]+)\sis\sthe\sbutton
           """ % substitutions, re.MULTILINE|re.VERBOSE)
 
+    re_Identify     = re.compile(u'\*{5}\sCassava\sHand\sHistory\sfor\sGame\s\d+\s')
     re_SplitHands   = re.compile('\n\n+')
     re_TailSplitHands   = re.compile('(\n\n\n+)')
     re_Button       = re.compile('Seat (?P<BUTTON>\d+) is the button', re.MULTILINE)
@@ -207,7 +209,7 @@ class PacificPoker(HandHistoryConverter):
         if 'CURRENCY1' in mg:
             #print "DEBUG: re_GameInfo[CURRENCY] \'", mg['CURRENCY'], "\'"
             info['currency'] = self.currencies[mg['CURRENCY1']]
-        if 'CURRENCY2' in mg:
+        if 'CURRENCY2' in mg and mg['CURRENCY2']:
             #print "DEBUG: re_GameInfo[CURRENCY] \'", mg['CURRENCY'], "\'"
             info['currency'] = self.currencies[mg['CURRENCY2']]
         
@@ -293,6 +295,8 @@ class PacificPoker(HandHistoryConverter):
                 hand.tablename = info[key]
             if key == 'BUTTON':
                 hand.buttonpos = info[key]
+            if key == 'MAX' and info['MAX'] != None:
+                hand.maxseats = int(info[key])
 
             if key == 'PLAY' and info['PLAY'] is not None:
                 #hand.currency = 'play' # overrides previously set value

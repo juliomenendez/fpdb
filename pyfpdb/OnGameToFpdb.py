@@ -63,6 +63,7 @@ class OnGame(HandHistoryConverter):
                       '100.00': ('25.00', '50.00'),   '100': ('25.00', '50.00'),
                       '200.00': ('50.00', '100.00'),  '200': ('50.00', '100.00'),
                       '500.00': ('125.00', '250.00'), '500': ('125.00', '250.00'),
+                      '1000.00': ('250.00', '500.00'),'1000': ('250.00', '500.00'),
                   }
     
     currencies = { u'\u20ac':'EUR', u'\xe2\x82\xac':'EUR', '$':'USD', '':'T$' }
@@ -83,15 +84,16 @@ class OnGame(HandHistoryConverter):
 
     # Static regexes
     # ***** End of hand R5-75443872-57 *****
+    re_Identify   = re.compile(u'\*{5}\sHistory\sfor\shand\s[A-Z0-9\-]+\s')
     re_SplitHands = re.compile(u'\*\*\*\*\*\sEnd\sof\shand\s[-A-Z\d]+.*\n+(?=\*)')
 
     #TODO: detect play money
     # "Play money" rather than "Real money" and set currency accordingly
     # Table:\s(\[SPEED\]\s)?(?P<TABLE>[-\'\w\#\s\.]+)\s\[\d+\]\s\( 
     re_HandInfo = re.compile(u"""
-            \*{5}\sHistory\sfor\shand\s(?P<HID>[-A-Z\d]+)(\s\(TOURNAMENT:(\s\"(?P<NAME>.+?)\",)?\s(?P<TID>[-A-Z\d]+)(?P<BUY>,\sbuy-in:\s(?P<BUYINCUR>[%(LS)s]?)(?P<BUYIN>[%(NUM)s]+))?\))?\s\*{5}\s?
+            \*{5}\sHistory\sfor\shand\s(?P<HID>[-A-Z\d]+)(?P<TOUR>\s\(TOURNAMENT:(\s\"(?P<NAME>.+?)\",)?\s(?P<TID>[-A-Z\d]+)?(?P<BUY>,\sbuy-in:\s(?P<BUYINCUR>[%(LS)s]?)(?P<BUYIN>[%(NUM)s]+))?\))?\s\*{5}\s?
             Start\shand:\s(?P<DATETIME>.+?)\s?
-            Table:\s(\[SPEED\]\s)?(?P<TABLE>.+?)\s\[\d+\]\s\( 
+            Table:\s(\[SPEED\]\s)?(?P<TABLE>.+?)\s\[(?P<TABLENO>\d+)\]\s\( 
             (
             (?P<LIMIT>NO_LIMIT|Limit|LIMIT|Pot\sLimit|POT_LIMIT)\s
             (?P<GAME>TEXAS_HOLDEM|OMAHA_HI|OMAHA_HI_LO|SEVEN_CARD_STUD|SEVEN_CARD_STUD_HI_LO|RAZZ|FIVE_CARD_DRAW)\s
@@ -137,7 +139,7 @@ class OnGame(HandHistoryConverter):
             self.re_PostSB    = re.compile('%(PLYR)s posts small blind \((%(CUR)s)?(?P<SB>[%(NUM)s]+)\)' % self.substitutions, re.MULTILINE)
             self.re_PostBB    = re.compile('%(PLYR)s posts big blind \((%(CUR)s)?(?P<BB>[%(NUM)s]+)\)' % self.substitutions, re.MULTILINE)
             self.re_Antes     = re.compile(r"^%(PLYR)s posts ante (%(CUR)s)?(?P<ANTE>[%(NUM)s]+)" % self.substitutions, re.MULTILINE)
-            self.re_BringIn   = re.compile(r"^%(PLYR)s small bring in (%(CUR)s)?(?P<BRINGIN>[%(NUM)s]+)" % self.substitutions, re.MULTILINE)
+            self.re_BringIn   = re.compile(r"^%(PLYR)s (small|big) bring in (%(CUR)s)?(?P<BRINGIN>[%(NUM)s]+)" % self.substitutions, re.MULTILINE)
             self.re_PostBoth  = re.compile('%(PLYR)s posts small \& big blind \( (%(CUR)s)?(?P<SBBB>[%(NUM)s]+)\)' % self.substitutions)
             self.re_PostDead  = re.compile('%(PLYR)s posts dead blind \((%(CUR)s)?(?P<DEAD>[%(NUM)s]+)\)' % self.substitutions, re.MULTILINE)
             self.re_HeroCards = re.compile('(New\shand\sfor|Dealing\sto)\s%(PLYR)s:\s\[(?P<CARDS>.*)\]' % self.substitutions)
@@ -152,7 +154,7 @@ class OnGame(HandHistoryConverter):
             #Side pot 1: $3.26 won by maac_5 ($3.10)
             #Main pot: $2.87 won by maac_5 ($1.37), sagi34 ($1.36)
             self.re_Pot = re.compile('(Main|Side)\spot(\s\d+)?:\s.*won\sby(?P<POT>.*$)', re.MULTILINE)
-            self.re_CollectPot = re.compile('\s(?P<PNAME>.+?)\s\((%(CUR)s)?(?P<POT>[%(NUM)s]+)\)' % self.substitutions)
+            self.re_CollectPot = re.compile('\s(?P<PNAME>.+?)\s\((%(CUR)s)?(?P<POT>[%(NUM)s]+)(\s(High|Low))?\)' % self.substitutions)
             #Seat 5: mleo17 ($3.40), net: +$2.57, [Jd, Qd] (TWO_PAIR QUEEN, JACK)
             self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): (?P<PNAME>.*) \(.*\), net:.* \[(?P<CARDS>.*)\].*" % self.substitutions, re.MULTILINE)
             self.re_sitsOut    = re.compile('%(PLYR)s sits out' % self.substitutions, re.MULTILINE)
@@ -193,8 +195,11 @@ class OnGame(HandHistoryConverter):
         #print "DEBUG: mg: %s" % mg
 
         info['type'] = 'ring'
-        if mg['TID'] != None:
-            info['type'] = 'tour'
+        if mg['TOUR'] != None:
+            if mg['TID'] != None:
+                info['type'] = 'tour'
+            else:
+                raise FpdbHandPartial
 
         if 'CURRENCY' in mg and mg['CURRENCY'] != None:
             if 'MONEY' in mg and mg['MONEY']=='Play money':
@@ -212,14 +217,18 @@ class OnGame(HandHistoryConverter):
         if 'GAME' in mg:
             (info['base'], info['category']) = self.games[mg['GAME']]
         if 'SB' in mg:
-            info['sb'] = self.clearMoneyString(mg['SB'].replace(',', ''))
+            info['sb'] = self.clearMoneyString(mg['SB'])
         if 'BB' in mg:
-            info['bb'] = self.clearMoneyString(mg['BB'].replace(',', ''))
+            info['bb'] = self.clearMoneyString(mg['BB'])
+        if 'Strobe' in mg['TABLE']:
+            info['fast'] = True
+        else:
+            info['fast'] = False
 
         if info['limitType'] == 'fl' and info['bb'] is not None:
             if info['type'] == 'ring':
                 try:
-                    bb = self.clearMoneyString(mg['BB'].replace(',', ''))
+                    bb = self.clearMoneyString(mg['BB'])
                     info['sb'] = self.Lim_Blinds[bb][0]
                     info['bb'] = self.Lim_Blinds[bb][1]
                 except KeyError:
@@ -227,7 +236,7 @@ class OnGame(HandHistoryConverter):
                     log.error(_("OnGameToFpdb.determineGameType: Lim_Blinds has no lookup for '%s' - '%s'") % (bb, tmp))
                     raise FpdbParseError
             else:
-                sb = self.clearMoneyString(mg['SB'].replace(',', ''))
+                sb = self.clearMoneyString(mg['SB'])
                 info['sb'] = str((Decimal(sb)/2).quantize(Decimal("0.01")))
                 info['bb'] = str(Decimal(sb).quantize(Decimal("0.01")))    
         return info
@@ -293,19 +302,24 @@ class OnGame(HandHistoryConverter):
                         hand.buyinCurrency = 'FREE'
                 else:
                     hand.buyinCurrency = 'NA'
-            if key == 'TABLE':
+            if key == 'TABLE' and not info['TOUR']:
+                hand.tablename = info[key]
+            if key == 'TABLENO' and info['TOUR']:
                 hand.tablename = info[key]
             if key == 'MAX':
                 hand.maxseats = int(info[key])
             if key == 'BUTTON':
                 hand.buttonpos = info[key]
+        
+        if hand.gametype['fast']:
+            hand.isFast = True
 
     def readPlayerStacks(self, hand):
         #log.debug("readplayerstacks: re is '%s'" % self.re_PlayerInfo)
         head = re.split(re.compile('Summary:'),  hand.handText)
         m = self.re_PlayerInfo.finditer(head[0])
         for a in m:
-            hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
+            hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), self.clearMoneyString(a.group('CASH')))
 
     def markStreets(self, hand):
         if hand.gametype['base'] in ("hold"):
@@ -467,9 +481,9 @@ class OnGame(HandHistoryConverter):
     @staticmethod
     def getTableTitleRe(type, table_name=None, tournament = None, table_number=None):
         "Returns string to search in windows titles"
-        regex = table_name
+        regex = re.escape(str(table_name))
         if type=="tour":
-            regex = "%s %s" %(tournament, table_number)
+            regex = "%s" % table_number
         log.info("OnGame.getTableTitleRe: table_name='%s' tournament='%s' table_number='%s'" % (table_name, tournament, table_number))
         log.info("OnGame.getTableTitleRe: returns: '%s'" % (regex))
         return regex

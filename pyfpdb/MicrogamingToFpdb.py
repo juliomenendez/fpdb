@@ -51,6 +51,7 @@ class Microgaming(HandHistoryConverter):
                                     betamount="\d+"\s
                                     istournament="(?P<TOUR>\d)"
                                     """, re.MULTILINE| re.VERBOSE)
+    re_Identify     = re.compile(u'<Game\s(hhversion="\d"\s)?id=\"\d+\"\sdate=\"[\d\-\s:]+\"\sunicodetablename')
     re_SplitHands   = re.compile('\n*----.+.DAT----\n*')
     #re_Button       = re.compile('<ACTION TYPE="HAND_DEAL" PLAYER="(?P<BUTTON>[^"]+)">\n<CARD LINK="[0-9b]+"></CARD>\n<CARD LINK="[0-9b]+"></CARD></ACTION>\n<ACTION TYPE="ACTION_', re.MULTILINE)
     re_PlayerInfo   = re.compile('<Seat num="(?P<SEAT>[0-9]+)" alias="(?P<PNAME>.+)" unicodealias=".+" balance="(?P<CASH>[.0-9]+)" endbalance="[.0-9]+"(?P<BUTTON>\sdealer="true")?', re.MULTILINE)
@@ -164,7 +165,6 @@ class Microgaming(HandHistoryConverter):
                 hand.startTime = datetime.datetime.strptime(info[key],"%Y-%m-%d %H:%M:%S")
             if key == 'HID':
                 hand.handid = info[key]
-            if key == 'TABLE':
                 hand.tablename = info[key]
             if key == 'BUTTON':
                 hand.buttonpos = info[key]
@@ -368,7 +368,7 @@ class Microgaming(HandHistoryConverter):
             elif action.group('ATYPE') == 'MuckCards':
                 pass # Deal with elsewhere
             elif action.group('ATYPE') == 'MoneyReturned':
-                hand.setUncalledBets(False)
+                pass # Deal with elsewhere
             else:
                 print (_("DEBUG:") + _("Unimplemented %s: '%s' '%s'") % ("readAction", pname, action.group('ATYPE')))
             #elif action.group('ATYPE') == 'ACTION_ALLIN':

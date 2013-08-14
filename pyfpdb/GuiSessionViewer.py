@@ -19,7 +19,6 @@ import L10n
 _ = L10n.get_translation()
 
 import sys
-import threading
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -43,7 +42,6 @@ except ImportError, inst:
     print "ImportError: %s" % inst.args
 
 import Card
-import fpdb_import
 import Database
 import Filters
 import Charset

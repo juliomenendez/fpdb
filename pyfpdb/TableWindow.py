@@ -32,6 +32,7 @@ _ = L10n.get_translation()
 #    Standard Library modules
 import re
 import logging
+from time import time, sleep
 
 #    pyGTK modules
 import gtk
@@ -66,7 +67,7 @@ limit_game_names = { #fpdb name      Stars Name   FTP Name
 
 #    A window title might have our table name + one of these words/
 #    phrases. If it has this word in the title, it is not a table.
-bad_words = ('History for table:', 'HUD:', 'Chat:', 'FPDBHUD')
+bad_words = ('History for table:', 'HUD:', 'Chat:', 'FPDBHUD', 'Lobby')
 
 #    Here are the custom signals we define for allowing the 'client watcher'
 #    thread to communicate with the gui thread. Any time a poker client is
@@ -144,14 +145,14 @@ class Table_Window(object):
             return None
 
         self.search_string = getTableTitleRe(self.config, self.site, self.type, **table_kwargs)
-        trys = 0
-        while True:
-            self.find_table_parameters()
-            if self.number is not None: break
-            trys += 1
-            if trys > 4:
-                log.error(_("Can't find table %s") % table_name)
-                return None
+        # make a small delay otherwise Xtables.root.get_windows()
+        #  returns empty for unknown reasons
+        sleep(0.1)
+        
+        self.find_table_parameters()
+        if not self.number:
+            log.error(_("Can't find table %s") % table_name)
+
 
         geo = self.get_geometry()
         if geo is None:  return None
@@ -271,13 +272,15 @@ class Table_Window(object):
             return "client_moved"
         return False  # no change
 
-    def check_table_no(self, hud):
+    def has_table_title_changed(self, hud):
+
         result = self.get_table_no()
         if result != False and result != self.table:
             self.table = result
             if hud is not None:
                 hud.parent.main_window.emit("table_changed", hud)
-        return True
+                return True
+        return False
 
     def check_bad_words(self, title):
         for word in bad_words:
