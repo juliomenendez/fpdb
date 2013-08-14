@@ -1,3 +1,4 @@
+
 from flask import Flask
 from flask import request
 
@@ -9,9 +10,9 @@ import time
 import datetime
 
 
-import Hand
 import Configuration
 from PokerStarsToFpdb import *
+import Hand
 import simplejson as json
 from hashlib import sha1
 import hmac
@@ -19,12 +20,18 @@ import simplejson as json
 import urllib
 
 from pkrsess import convert_hand
+import logging
+
+log = logging.getLogger("pkrs")
+log.setLevel(logging.DEBUG)
+ch = logging.StreamHandler()
+form = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+ch.setFormatter(form)
+ch.setLevel(logging.DEBUG)
+log.addHandler(ch)
 
 application = app = Flask(__name__)
 
-logging.basicConfig(level=logging.DEBUG)
-
-log = logging.getLogger()
 config = Configuration.Config()
 
 #consumer_secret = '12345a'
