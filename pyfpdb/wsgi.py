@@ -85,7 +85,6 @@ def hand_convert():
     #if check_signature(consumer_secret, hand_data, signature) == False:
     #    return ret_error('Signature check failed')
 
-
     return convert_hand(hand_data)
 
 if __name__ == '__main__':
