@@ -114,6 +114,7 @@ elif OS_FAMILY == 'Linux':
 else:
     APPDATA_PATH = False
     CONFIG_PATH = False
+CONFIG_PATH = '.'
 
 if os.name == 'posix':
     POSIX = True
@@ -215,11 +216,12 @@ def set_logfile(file_name):
         try:
             log_file = log_file.replace('\\', '\\\\')  # replace each \ with \\
             logging.config.fileConfig(conf_file, {"logFile":log_file})
-        except:
-            sys.stderr.write(_("Could not setup log file %s") % file_name)
+        except Exception as e:
+            sys.stderr.write(_("Could not setup log file %s") % e)
 
 def check_dir(path, create = True):
     """Check if a dir exists, optionally creates if not."""
+    return False
     if os.path.exists(path):
         if os.path.isdir(path):
             return path
