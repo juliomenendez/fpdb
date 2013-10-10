@@ -609,6 +609,7 @@ class Database:
             self.day_start = float(gen['day_start'])
             
         self.sessionTimeout = float(self.import_options['sessionTimeout'])
+        self.publicDB = self.import_options['publicDB']
 
         # where possible avoid creating new SQL instance by using the global one passed in
         if sql is None:
@@ -641,7 +642,6 @@ class Database:
             self.build_full_hudcache = not self.import_options['fastStoreHudCache']
             self.cacheSessions = self.import_options['cacheSessions']
             self.callHud = self.import_options['callFpdbHud']
-            self.publicDB = self.import_options['publicDB']
 
             #self.hud_hero_style = 'T'  # Duplicate set of vars just for hero - not used yet.
             #self.hud_hero_hands = 2000 # Idea is that you might want all-time stats for others
@@ -3391,15 +3391,27 @@ class Database:
 
         return result
     
-    def defaultTourneyTypeValue(self, objVal, dbVal, objField):
-        if ((not objVal) or 
-           (objField=='maxSeats' and objVal>dbVal) or 
-           ((objField,objVal)==('buyinCurrency','NA')) or 
-           ((objField,objVal)==('stack','Regular')) or
-           ((objField,objVal)==('speed','Normal'))
+    def defaultTourneyTypeValue(self, value1, value2, field):
+        if ((not value1) or 
+           (field=='maxSeats' and value1>value2) or 
+           ((field,value1)==('buyinCurrency','NA')) or 
+           ((field,value1)==('stack','Regular')) or
+           ((field,value1)==('speed','Normal')) or
+           (field=='koBounty' and value1)
            ):
             return True
-        return False        
+        return False
+    
+    def updateObjectValue(self, obj, dbVal, objVal, objField):
+        if (objField=='koBounty' and objVal>dbVal and dbVal!=0):
+            if objVal%dbVal==0:
+                setattr(obj, objField, dbVal)
+                koCounts = getattr(obj, 'koCounts')
+                for pname, kos in koCounts.iteritems():
+                    koCount = objVal/dbVal
+                    obj.koCounts.update( {pname : [koCount] } )
+        else:
+            setattr(obj, objField, dbVal)
     
     def createOrUpdateTourneyType(self, obj):
         ttid, _ttid, updateDb = None, None, False
@@ -3434,8 +3446,8 @@ class Database:
                 objField, dbField = ev
                 objVal, dbVal = getattr(obj, objField), resultDict[dbField]
                 if self.defaultTourneyTypeValue(objVal, dbVal, objField) and dbVal:#DB has this value but object doesnt, so update object
-                    setattr(obj, objField, dbVal)
-                elif objVal and (dbVal != objVal):#object has this value but DB doesnt, so update DB
+                    self.updateObjectValue(obj, dbVal, objVal, objField)
+                elif self.defaultTourneyTypeValue(dbVal, objVal, objField) and objVal:#object has this value but DB doesnt, so update DB
                     updateDb=True
                     oldttid = ttid
         if not result or updateDb:
@@ -3598,7 +3610,7 @@ class Database:
         if (tmp == None): 
             c.execute (self.sql.query['insertTourney'].replace('%s', self.sql.query['placeholder']),
                         (tourneyTypeId, None, tourNo, None, None,
-                         None, None, None, None, None, None, None))
+                         None, None, None, None, None, None, None, None, None))
             result = self.get_last_insert_id(c)
         else:
             result = tmp[0]
@@ -3645,7 +3657,7 @@ class Database:
         else:
             row = (summary.tourneyTypeId, None, summary.tourNo, summary.entries, summary.prizepool, summary.startTime,
                    summary.endTime, summary.tourneyName, summary.totalRebuyCount, summary.totalAddOnCount,
-                   summary.added, summary.addedCurrency)
+                   summary.comment, summary.commentTs, summary.added, summary.addedCurrency)
             if self.printdata:
                 print ("######## Tourneys ##########")
                 import pprint
@@ -3735,7 +3747,7 @@ class Database:
                         if summaryDict[player][entryIdx]==None and resultDict[ev[1]]!=None:#DB has this value but object doesnt, so update object 
                             summaryDict[player][entryIdx] = resultDict[ev[1]]
                             setattr(summary, summaryAttribute, summaryDict)
-                        elif summaryDict!=None and resultDict[ev[1]]==None:#object has this value but DB doesnt, so update DB
+                        elif summaryDict[player][entryIdx]!=None and not resultDict[ev[1]]:#object has this value but DB doesnt, so update DB
                             updateDb=True
                     if updateDb:
                         q = self.sql.query['updateTourneysPlayer'].replace('%s', self.sql.query['placeholder'])
