@@ -11,6 +11,7 @@
 
 from distutils.core import setup
 from distutils.command.install_data import install_data as INST
+from distutils.dir_util import mkpath
 
 import glob, string, os
 import sys
@@ -36,6 +37,13 @@ f = open('pyfpdb/card_path.py', 'w+')
 f.write(CONTENT)
 f.close()
 
+# Check if we are running on a virtualenv and set the data_files path accordinly
+if hasattr(sys, 'real_prefix'):
+    data_files_prefix = 'share/'
+    if not os.path.exists('share/'):
+        mkpath('share/')
+else:
+    data_files_prefix = '/usr/share/'
 
 # Return to normal distutils flow after the atrocities committed above
 
@@ -74,20 +82,20 @@ setup(name = 'fpdb',
     package_dir = { 'fpdb' : 'pyfpdb' },
     cmdclass = commands,
     data_files = [
-        ('/usr/share/pixmaps',
+        (os.path.join(data_files_prefix, 'pixmaps'),
             ['gfx/fpdb-icon.png', 'gfx/fpdb-icon2.png',
              'gfx/fpdb-cards.png'
              ]),
-        ('/usr/share/applications',
+        (os.path.join(data_files_prefix, 'applications'),
             ['files/fpdb.desktop']),
-        ('/usr/share/python-fpdb',
-            ['pyfpdb/logging.conf', 
+        (os.path.join(data_files_prefix, 'python-fpdb'),
+            ['pyfpdb/logging.conf',
              'pyfpdb/HUD_config.xml.example'
             ]),
-        ('/usr/share/python-fpdb/cards/backs/', glob.glob('gfx/cards/backs/*') ),
-        ('/usr/share/python-fpdb/cards/bordered/', glob.glob('gfx/cards/bordered/*') ),
-        ('/usr/share/python-fpdb/cards/colour/', glob.glob('gfx/cards/colour/*') ),
-        ('/usr/share/python-fpdb/cards/simple/', glob.glob('gfx/cards/simple/*') ),
-        ('/usr/share/python-fpdb/cards/white/', glob.glob('gfx/cards/white/*') ),
+        (os.path.join(data_files_prefix, 'python-fpdb', 'cards', 'backs'), glob.glob('gfx/cards/backs/*') ),
+        (os.path.join(data_files_prefix, 'python-fpdb', 'cards', 'bordered'), glob.glob('gfx/cards/bordered/*') ),
+        (os.path.join(data_files_prefix, 'python-fpdb', 'cards', 'colour'), glob.glob('gfx/cards/colour/*') ),
+        (os.path.join(data_files_prefix, 'python-fpdb', 'cards', 'simple'), glob.glob('gfx/cards/simple/*') ),
+        (os.path.join(data_files_prefix, 'python-fpdb', 'cards', 'white'), glob.glob('gfx/cards/white/*') ),
         ]
 )
