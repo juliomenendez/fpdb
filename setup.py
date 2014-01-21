@@ -40,8 +40,6 @@ f.close()
 # Check if we are running on a virtualenv and set the data_files path accordinly
 if hasattr(sys, 'real_prefix'):
     data_files_prefix = 'share/'
-    if not os.path.exists('share/'):
-        mkpath('share/')
 else:
     data_files_prefix = '/usr/share/'
 
