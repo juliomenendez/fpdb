@@ -109,6 +109,7 @@ PYFPDB_PATH = os.path.join(FPDB_ROOT_PATH, u"pyfpdb")
 CONFIG_PATH = '.'
 if hasattr(sys, 'real_prefix'):
     CONFIG_PATH = FPDB_ROOT_PATH
+    APPDATA_PATH = FPDB_ROOT_PATH
 elif OS_FAMILY in ['XP', 'Win7']:
     APPDATA_PATH = winpaths_appdata
     CONFIG_PATH = os.path.join(APPDATA_PATH, u"fpdb")
