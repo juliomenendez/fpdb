@@ -175,7 +175,8 @@ def get_config(file_name, fallback = True):
             if os.path.exists(file_name + '.example'):
                 example_path = file_name + '.example'
             elif hasattr(sys, 'real_prefix'):
-                example_path = os.path.join(module_path, file_name + '.example')
+                example_path = os.path.join(
+                    FPDB_ROOT_PATH, 'share', 'python-fpdb', file_name + '.example')
             else:
                 example_path = "pyfpdb/" + file_name + '.example'
         if not config_found and fallback:
