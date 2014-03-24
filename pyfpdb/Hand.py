@@ -274,16 +274,16 @@ class Hand(object):
         self.gametype['maxSeats'] = self.maxseats #TODO: move up to individual parsers
         self.dbid_pids = db.getSqlPlayerIDs([p[1] for p in self.players], self.siteId, self.hero)
         self.dbid_gt = db.getSqlGameTypeId(self.siteId, self.gametype, printdata = printtest)
-        
+
         #Gametypes
         hilo = Card.games[self.gametype['category']][2]
-                
+
         self.gametyperow = (self.siteId, self.gametype['currency'], self.gametype['type'], self.gametype['base'],
                             self.gametype['category'], self.gametype['limitType'], hilo, self.gametype['mix'],
                             int(Decimal(self.gametype['sb'])*100), int(Decimal(self.gametype['bb'])*100),
                             int(Decimal(self.gametype['bb'])*100), int(Decimal(self.gametype['bb'])*200),
                             int(self.gametype['maxSeats']), int(self.gametype['ante']*100),
-                            self.gametype['buyinType'], self.gametype['fast'], 
+                            self.gametype['buyinType'], self.gametype['fast'],
                             self.gametype['newToGame'], self.gametype['homeGame'])
         # Note: the above data is calculated in db.getGameTypeId
         #       Only being calculated above so we can grab the testdata
@@ -291,7 +291,7 @@ class Hand(object):
             self.tourneyTypeId = db.getSqlTourneyTypeIDs(self)
             self.tourneyId = db.getSqlTourneyIDs(self)
             self.tourneysPlayersIds = db.getSqlTourneysPlayersIDs(self)
-        
+
     def assembleHand(self, db):
         self.stats.getStats(self)
         self.hands = self.stats.getHands()
@@ -299,7 +299,7 @@ class Hand(object):
         self.handsactions = self.stats.getHandsActions()
         self.handsstove = self.stats.getHandsStove()
         self.handspots = self.stats.getHandsPots()
-        
+
     def getHandId(self, db, id):
         if db.isDuplicate(self.siteId, self.hands['siteHandNo'], self.hands['heroSeat'], self.publicDB):
             #log.debug(_("Hand.insert(): hid #: %s is a duplicate") % hh['siteHandNo'])
@@ -327,15 +327,15 @@ class Hand(object):
         db.storeHandsPlayers(self.dbid_hands, self.dbid_pids, self.handsplayers, doinsert, printtest)
         if self.handspots:
             self.handspots.sort(key=lambda x: x[1])
-            for ht in self.handspots: 
+            for ht in self.handspots:
                 ht[0] = self.dbid_hands
         db.storeHandsPots(self.handspots, doinsert)
-    
+
     def insertHandsActions(self, db, doinsert = False, printtest = False):
         """ Function to inserts HandsActions into database"""
         if self.saveActions:
             db.storeHandsActions(self.dbid_hands, self.dbid_pids, self.handsactions, doinsert, printtest)
-    
+
     def insertHandsStove(self, db, doinsert = False):
         """ Function to inserts HandsStove into database"""
         if self.handsstove:
@@ -346,7 +346,7 @@ class Hand(object):
         """ Function to update the HudCache"""
         if self.callHud:
             db.storeHudCache(self.dbid_gt, self.gametype, self.dbid_pids, self.startTime, self.handsplayers, doinsert)
-        
+
     def updateSessionsCache(self, db, tz, doinsert = False):
         """ Function to update the SessionsCache"""
         if self.cacheSessions:
@@ -355,24 +355,24 @@ class Hand(object):
                 heroes = [self.dbid_pids[self.hero]]
             else:
                 heroes = [self.dbid_pids[self.players[0][1]]]
-                
-            db.storeSessionsCache(self.dbid_hands, self.dbid_pids, self.startTime, heroes, tz, doinsert) 
+
+            db.storeSessionsCache(self.dbid_hands, self.dbid_pids, self.startTime, heroes, tz, doinsert)
             db.storeCashCache(self.dbid_hands, self.dbid_pids, self.startTime, self.dbid_gt, self.gametype, self.handsplayers, heroes, self.hero, doinsert)
             db.storeTourCache(self.dbid_hands, self.dbid_pids, self.startTime, self.tourneyId, self.gametype, self.handsplayers, heroes, self.hero, doinsert)
-            
+
     def updateCardsCache(self, db, tz, doinsert = False):
         """ Function to update the CardsCache"""
         if self.cacheSessions:
             heroes = []
-            if self.hero in self.dbid_pids: 
+            if self.hero in self.dbid_pids:
                 heroes = [self.dbid_pids[self.hero]]
             db.storeCardsCache(self.dbid_hands, self.dbid_pids, self.startTime, self.dbid_gt, self.tourneyTypeId, self.gametype, self.siteId, self.handsplayers, self.handsstove, heroes, tz, doinsert)
-                
+
     def updatePositionsCache(self, db, tz, doinsert = False):
         """ Function to update the PositionsCache"""
         if self.cacheSessions:
             heroes = []
-            if self.hero in self.dbid_pids: 
+            if self.hero in self.dbid_pids:
                 heroes = [self.dbid_pids[self.hero]]
             db.storePositionsCache(self.dbid_hands, self.dbid_pids, self.startTime, self.dbid_gt, self.tourneyTypeId, self.gametype, self.siteId, self.handsplayers, heroes, tz, doinsert)
 
@@ -469,8 +469,8 @@ class Hand(object):
         # FIXME: Need to figure out why some times come out of the DB as %Y-%m-%d %H:%M:%S+00:00,
         #        and others as %Y-%m-%d %H:%M:%S
         #print "DEBUG: res['*']: %s" % res
-        
-        #self.startTime currently unused in the replayer and commented out. 
+
+        #self.startTime currently unused in the replayer and commented out.
         #    Can't be done like this because not all dbs return the same type for starttime
         #try:
         #    self.startTime = datetime.datetime.strptime(res['starttime'], "%Y-%m-%d %H:%M:%S+00:00")
@@ -497,7 +497,7 @@ class Hand(object):
         q = db.sql.query['handActions']
         q = q.replace('%s', db.sql.query['placeholder'])
         c.execute(q, (handId,))
-        
+
         # Discripter must be set to lowercase as supported dbs differ on what is returned.
         res = [dict(line) for line in [zip([ column[0].lower() for column in c.description], row) for row in c.fetchall()]]
         for row in res:
@@ -603,7 +603,7 @@ class Hand(object):
         return c
 
     def addAllIn(self, street, player, amount):
-        """ For sites (currently only Merge & Microgaming) which record "all in" as a special action, 
+        """ For sites (currently only Merge & Microgaming) which record "all in" as a special action,
             which can mean either "calls and is all in" or "raises all in"."""
         self.checkPlayerExists(player, 'addAllIn')
         amount = amount.replace(u',', u'') #some sites have commas
@@ -666,14 +666,14 @@ class Hand(object):
                 sb = Decimal(str(self.sb))
                 self.bets['BLINDSANTES'][player].append(sb)
                 self.pot.addCommonMoney(player, sb)
-                
+
             street = 'BLAH'
 
             if self.gametype['base'] == 'hold':
                 street = 'PREFLOP'
             elif self.gametype['base'] == 'draw':
                 street = 'DEAL'
-            
+
             self.bets[street][player].append(amount)
             self.pot.addMoney(player, amount)
             if amount>self.lastBet.get(street):
@@ -698,7 +698,7 @@ class Hand(object):
             act = (player, 'calls', amount, self.stacks[player] == 0)
             self.actions[street].append(act)
             self.pot.addMoney(player, amount)
-            
+
     def addCallTo(self, street, player=None, amountTo=None):
         if amountTo:
             amountTo = amountTo.replace(u',', u'') #some sites have commas
@@ -856,7 +856,7 @@ class Hand(object):
             holeandboard = set([self.card(c) for c in holeandboard])
             board = set([c for s in self.board.values() for c in s])
             self.addHoleCards(holeandboard.difference(board),player,shown, mucked)
-            
+
     def sittingOut(self):
         dealtIn = set()
         for i, street in enumerate(self.actionStreets):
@@ -869,10 +869,10 @@ class Hand(object):
         for p in self.players:
             if p[1] not in dealtIn:
                 self.sitout.add(p[1])
-            
+
     def setUncalledBets(self, value):
-        self.uncalledbets = value                
-                
+        self.uncalledbets = value
+
     def totalPot(self):
         """ If all bets and blinds have been added, totals up the total pot size"""
 
@@ -880,13 +880,13 @@ class Hand(object):
         if self.totalpot is None:
             self.pot.end()
             self.totalpot = self.pot.total
-            
+
         if self.adjustCollected:
             self.stats.awardPots(self)
-        
+
         if self.adjustCollected:
             self.stats.awardPots(self)
-        
+
         def gettempcontainers():
             (collected, collectees, totalcollected) = ([], {}, 0)
             for i,v in enumerate(self.collected):
@@ -895,11 +895,11 @@ class Hand(object):
             for k, j in self.collectees.iteritems():
                 collectees[k] = j
             return collected, collectees, totalcollected
-        
+
         if self.uncalledbets:
             collected, collectees, totalcollected = gettempcontainers()
             for i,v in enumerate(self.collected):
-                if v[0] in self.pot.returned: 
+                if v[0] in self.pot.returned:
                     collected[i][1] = Decimal(v[1]) - self.pot.returned[v[0]]
                     collectees[v[0]] -= self.pot.returned[v[0]]
                     self.pot.returned[v[0]] = 0
@@ -948,7 +948,7 @@ class Hand(object):
 
     def actionString(self, act, street=None):
         log.debug("Hand.actionString(act=%s, street=%s)" % (act, street))
-        
+
         if act[1] == 'folds':
             return ("%s: folds " %(act[0]))
         elif act[1] == 'checks':
@@ -975,7 +975,7 @@ class Hand(object):
             return ("%s: discards %s %s%s" %(act[0], act[2], 'card' if act[2] == 1 else 'cards' , " [" + " ".join(self.discards[street][act[0]]) + "]" if self.hero == act[0] else ''))
         elif act[1] == 'stands pat':
             return ("%s: stands pat" %(act[0]))
-        
+
     def get_actions_short(self, player, street):
         """ Returns a string with shortcuts for the actions of the given player and the given street
             F ... fold, X ... Check, B ...Bet, C ... Call, R ... Raise
@@ -994,8 +994,8 @@ class Hand(object):
                     list.append('C')
                 elif action[1] == 'raises':
                     list.append('R')
-                
-        return ''.join(list) 
+
+        return ''.join(list)
 
     def get_actions_short_streets(self, player, *streets):
         """ Returns a string with shortcuts for the actions of the given player on all given streets seperated by ',' """
@@ -1005,10 +1005,10 @@ class Hand(object):
             if len(str) > 0:                            #if there is no action on later streets, nothing is added.
                 list.append(str)
         return ','.join(list)
-    
+
     def get_player_position(self, player):
         """ Returns the given players postion (S, B, 0-7) """
-        #position has been added to the players list. It could be calculated from buttonpos and player seatnums, 
+        #position has been added to the players list. It could be calculated from buttonpos and player seatnums,
         #but whats the point in calculating a value that has been there anyway?
         for p in self.players:
             if p[1] == player:
@@ -1115,8 +1115,8 @@ class HoldemOmahaHand(Hand):
                     hhc.readCommunityCards(self, street)
             for street in self.actionStreets:
                 if self.streets[street]:
-                    hhc.readAction(self, street)
                     self.pot.markTotal(street)
+                    hhc.readAction(self, street)
             hhc.readCollectPot(self)
             hhc.readShownCards(self)
             self.pot.handid = self.handid # This is only required so Pot can throw it in totalPot
@@ -1430,8 +1430,8 @@ class DrawHand(Hand):
             # Read actions in street order
             for street in self.streetList:
                 if self.streets[street]:
-                    hhc.readAction(self, street)
                     self.pot.markTotal(street)
+                    hhc.readAction(self, street)
             hhc.readCollectPot(self)
             hhc.readShownCards(self)
             self.pot.handid = self.handid # This is only required so Pot can throw it in totalPot
@@ -1441,7 +1441,7 @@ class DrawHand(Hand):
             if self.maxseats is None:
                 self.maxseats = hhc.guessMaxSeats(self)
             hhc.readOther(self)
-            
+
         elif builtFrom == "DB":
             # Creator expected to call hhc.select(hid) to fill out object
             print "DEBUG: DrawHand initialised for select()"
@@ -1475,7 +1475,7 @@ class DrawHand(Hand):
     def join_holecards(self, player, asList=False, street=False):
         """With asList = True it returns the set cards for a player including down cards if they aren't know"""
         holecards = [u'0x']*20
-        
+
         for i, _street in enumerate(self.holeStreets):
             if player in self.holecards[_street].keys():
                 allhole = self.holecards[_street][player][1] + self.holecards[_street][player][0]
@@ -1620,8 +1620,8 @@ class StudHand(Hand):
                 if street == 'BLINDSANTES': continue # OMG--sometime someone folds in the ante round
                 if self.streets[street]:
                     log.debug(street + self.streets[street])
-                    hhc.readAction(self, street)
                     self.pot.markTotal(street)
+                    hhc.readAction(self, street)
             hhc.readCollectPot(self)
             hhc.readShownCards(self) # not done yet
             self.pot.handid = self.handid # This is only required so Pot can throw it in totalPot
@@ -1631,7 +1631,7 @@ class StudHand(Hand):
             if self.maxseats is None:
                 self.maxseats = hhc.guessMaxSeats(self)
             hhc.readOther(self)
-            
+
         elif builtFrom == "DB":
             # Creator expected to call hhc.select(hid) to fill out object
             print "DEBUG: StudHand initialised for select()"
@@ -1862,7 +1862,7 @@ class StudHand(Hand):
         holecards = []
         for street in self.holeStreets:
             if self.holecards[street].has_key(player):
-                if ((self.gametype['category']=='5_studhi' and street == 'SECOND') or 
+                if ((self.gametype['category']=='5_studhi' and street == 'SECOND') or
                     (self.gametype['category']!='5_studhi' and street == 'THIRD')):
                     holecards = holecards + self.holecards[street][player][1] + self.holecards[street][player][0]
                 elif street == 'SEVENTH':
@@ -1932,7 +1932,7 @@ class Pot(object):
 
     def addCommonMoney(self, player, amount):
         self.common[player] += amount
-        
+
     def addAntes(self, player, amount):
         self.antes[player] += amount
 
@@ -1966,7 +1966,7 @@ class Pot(object):
             except IndexError, e:
                 log.error(_("Pot.end(): '%s': Major failure while calculating pot: '%s'") % (self.handid, e))
                 raise FpdbParseError
-        
+
         committed = sorted([ (v,k) for (k,v) in self.committed.items()])
         #print "DEBUG: committed: %s" % committed
         #ERROR below. lastbet is correct in most cases, but wrong when
@@ -1997,7 +1997,7 @@ class Pot(object):
         except IndexError, e:
             log.error(_("Pot.end(): '%s': Major failure while calculating pot: '%s'") % (self.handid, e))
             raise FpdbParseError
-        
+
 
         # TODO: I think rake gets taken out of the pots.
         # so it goes:
@@ -2020,11 +2020,11 @@ class Pot(object):
         ret += " Main pot %s%.2f" % (self.sym, self.pots[0][0])
 
         return ret + ''.join([ (" Side pot %s%.2f." % (self.sym, self.pots[x][0]) ) for x in xrange(1, len(self.pots)) ])
-        
+
 def hand_factory(hand_id, config, db_connection):
     # a factory function to discover the base type of the hand
     # and to return a populated class instance of the correct hand
-    
+
     gameinfo = db_connection.get_gameinfo_from_hid(hand_id)
 
     if gameinfo['base'] == 'hold':
@@ -2039,7 +2039,7 @@ def hand_factory(hand_id, config, db_connection):
 
     hand_instance.select(db_connection, hand_id)
     hand_instance.handid_selected = hand_id #hand_instance does not supply this, create it here
-    
+
     return hand_instance
 
 
