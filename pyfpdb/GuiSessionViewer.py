@@ -19,7 +19,6 @@ import L10n
 _ = L10n.get_translation()
 
 import sys
-import threading
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -43,7 +42,6 @@ except ImportError, inst:
     print "ImportError: %s" % inst.args
 
 import Card
-import fpdb_import
 import Database
 import Filters
 import Charset
@@ -520,7 +518,7 @@ class GuiSessionViewer:
             for tabobject in self.owner.threads:
                 if isinstance(tabobject, GuiHandViewer.GuiHandViewer):
                     replayer = tabobject
-                    self.owner.display_tab(_("Hand Viewer"))
+                    self.owner.tab_hand_viewer(None)
                     break
             if replayer is None:
                 self.owner.tab_hand_viewer(None)
@@ -528,7 +526,10 @@ class GuiSessionViewer:
                     if isinstance(tabobject, GuiHandViewer.GuiHandViewer):
                         replayer = tabobject
                         break
-            reformat = lambda t: strftime("%Y-%m-%d %H:%M:%S", gmtime(t))
+            # added the timezone offset ('+00:00') to make the db query work. Otherwise the hands
+            # at the edges of the date range are not included. A better solution may be possible.
+            # Optionally the end date in the call below, which is a Long gets a '+1'.
+            reformat = lambda t: strftime("%Y-%m-%d %H:%M:%S+00:00", gmtime(t))
             handids = replayer.get_hand_ids_from_date_range(reformat(self.times[path[0]][0]), reformat(self.times[path[0]][1]), save_date = True)
             replayer.reload_hands(handids)
 

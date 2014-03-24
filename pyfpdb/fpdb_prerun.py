@@ -30,7 +30,8 @@ global_modules_to_test =   ["gobject",
                             "numpy",
                             "pylab",
                             "sqlite3",
-                            "pytz"]
+                            "pytz",
+                            "BeautifulSoup"]
 
 windows_modules_to_test =  ["win32gui",
                             "win32api",
@@ -114,6 +115,7 @@ class ChooseLanguage:
             self.listbox.insert(END,(key + " -- " + language_dict[key]))
         self.listbox.pack(fill=BOTH, expand=1)
         self.listbox.select_set(0)
+        self.selected_language = ""
         
         self.listbox.bind('<Double-1>', self.callbackLanguage)
         win.mainloop()
@@ -235,7 +237,7 @@ if config.install_method == "exe":
 # finally, invoke fpdb
 #
 import os
-os.chdir(os.path.join(config.fpdb_program_path, u"pyfpdb"))
+os.chdir(os.path.join(config.fpdb_root_path, u"pyfpdb"))
 
 if config.os_family in ("XP", "Win7"):
     os.execvpe('pythonw.exe', list(('pythonw.exe', 'fpdb.pyw', initial_run, '-r'))+sys.argv[1:], os.environ)

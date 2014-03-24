@@ -24,13 +24,8 @@ _ = L10n.get_translation()
 import sys
 import exceptions
 
-import logging
-# logging has been set up in fpdb.py or HUD_main.py, use their settings:
-
-import Configuration
 from HandHistoryConverter import *
 from decimal_wrapper import Decimal
-import time
 
 # Winamax HH Format
 
@@ -49,32 +44,26 @@ class Winamax(HandHistoryConverter):
     siteName = "Winamax"
     filetype = "text"
     codepage = ("utf8", "cp1252")
-    siteId   = 14 # Needs to match id entry in Sites database
+    siteId   = 15 # Needs to match id entry in Sites database
 
     mixes = { } # Legal mixed games
-    sym = {'USD': "\$", 'CAD': "\$", 'T$': "", "EUR": u"\xe2\x82\xac|\u20ac", "GBP": "\xa3"}         # ADD Euro, Sterling, etc HERE
+    sym = {'USD': "\$", 'CAD': "\$", 'T$': "", "EUR": u"\xe2\x82\xac|\u20ac", "GBP": "\xa3", "play": ""}         # ADD Euro, Sterling, etc HERE
     substitutions = {
                      'LEGAL_ISO' : "USD|EUR|GBP|CAD|FPP",     # legal ISO currency codes
                             'LS' : u"\$|\xe2\x82\xac|\u20ac|" # legal currency symbols - Euro(cp1252, utf-8)
                     }
 
-    limits = { 'no limit':'nl', 'pot limit' : 'pl','LIMIT':'fl'}
+    limits = { 'no limit':'nl', 'pot limit' : 'pl', 'fixed limit':'fl'}
 
     games = {                          # base, category
                                 "Holdem" : ('hold','holdem'),
                                  'Omaha' : ('hold','omahahi'),
-             #             'Omaha Hi/Lo' : ('hold','omahahilo'),
-             #                    'Razz' : ('stud','razz'),
-             #                    'RAZZ' : ('stud','razz'),
-             #             '7 Card Stud' : ('stud','studhi'),
-             #   'SEVEN_CARD_STUD_HI_LO' : ('stud','studhilo'),
-             #                  'Badugi' : ('draw','badugi'),
-             # 'Triple Draw 2-7 Lowball' : ('draw','27_3draw'),
-             #             '5 Card Draw' : ('draw','fivedraw')
+                # It appears French law prevents any other games from being spread.
                }
 
     # Static regexes
     # ***** End of hand R5-75443872-57 *****
+    re_Identify = re.compile(u'Winamax\sPoker\s\-\s(CashGame|Tournament\s")')
     re_SplitHands = re.compile(r'\n\n')
 
 
@@ -86,12 +75,12 @@ class Winamax(HandHistoryConverter):
             (?P<RING>CashGame)?
             (?P<TOUR>Tournament\s
             (?P<TOURNAME>.+)?\s
-            buyIn:\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\,]+)?\s\+?\s(?P<BIRAKE>[%(LS)s\d\,]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|Freeroll|Gratuit|Ticket\suniquement)?\s
+            buyIn:\s(?P<BUYIN>(?P<BIAMT>[%(LS)s\d\,.]+)?(\s\+?\s|-)(?P<BIRAKE>[%(LS)s\d\,.]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|(?P<FREETICKET>[\sa-zA-Z]+))?\s
             (level:\s(?P<LEVEL>\d+))?
             .*)?
             \s-\sHandId:\s\#(?P<HID1>\d+)-(?P<HID2>\d+)-(?P<HID3>\d+).*\s  # REB says: HID3 is the correct hand number
             (?P<GAME>Holdem|Omaha)\s
-            (?P<LIMIT>no\slimit|pot\slimit)\s
+            (?P<LIMIT>fixed\slimit|no\slimit|pot\slimit)\s
             \(
             (((%(LS)s)?(?P<ANTE>[.0-9]+)(%(LS)s)?)/)?
             ((%(LS)s)?(?P<SB>[.0-9]+)(%(LS)s)?)/
@@ -102,6 +91,7 @@ class Winamax(HandHistoryConverter):
             (.(?P<TOURNO>\d+).\#(?P<TABLENO>\d+))?.*
             \'
             \s(?P<MAXPLAYER>\d+)\-max
+            \s(?P<MONEY>\(real\smoney\))?
             """ % substitutions, re.MULTILINE|re.DOTALL|re.VERBOSE)
 
     re_TailSplitHands = re.compile(r'\n\s*\n')
@@ -121,7 +111,8 @@ class Winamax(HandHistoryConverter):
 # Seat 1: some_player (5€)
 # Seat 2: some_other_player21 (6.33€)
 
-    re_PlayerInfo = re.compile(u'Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.*)\s\((%(LS)s)?(?P<CASH>[.0-9]+)(%(LS)s)?\)' % substitutions)
+    re_PlayerInfo        = re.compile(u'Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.*)\s\((%(LS)s)?(?P<CASH>[.0-9]+)(%(LS)s)?\)' % substitutions)
+    re_PlayerInfoSummary = re.compile(u'Seat\s(?P<SEAT>[0-9]+):\s(?P<PNAME>.+?)\s' % substitutions)
 
     def compilePlayerRegexs(self, hand):
         players = set([player[1] for player in hand.players])
@@ -149,7 +140,6 @@ class Winamax(HandHistoryConverter):
 
             self.re_CollectPot = re.compile('\s*(?P<PNAME>.*)\scollected\s(%(CUR)s)?(?P<POT>[\.\d]+)(%(CUR)s)?.*' % subst)
             self.re_ShownCards = re.compile("^Seat (?P<SEAT>[0-9]+): %(PLYR)s showed \[(?P<CARDS>.*)\].*" % subst, re.MULTILINE)
-            self.re_sitsOut    = re.compile('(?P<PNAME>.*) sits out')
 
     def readSupportedGames(self):
         return [
@@ -168,10 +158,9 @@ class Winamax(HandHistoryConverter):
 
         m = self.re_HandInfo.search(handText)
         if not m:
-            tmp = handText[0:100]
-            log.error(_("Unable to recognise gametype from: '%s'") % tmp)
-            log.error("determineGameType: " + _("Raising FpdbParseError"))
-            raise FpdbParseError(_("Unable to recognise gametype from: '%s'") % tmp)
+            tmp = handText[0:200]
+            log.error(_("WinamaxToFpdb.determineGameType: '%s'") % tmp)
+            raise FpdbParseError
 
         mg = m.groupdict()
 
@@ -179,32 +168,41 @@ class Winamax(HandHistoryConverter):
             info['type'] = 'tour'
         elif mg.get('RING'):
             info['type'] = 'ring'
-
-        info['currency'] = 'EUR'
+        
+        if mg.get('MONEY'):
+            info['currency'] = 'EUR'
+        else:
+            info['currency'] = 'play'
 
         if 'LIMIT' in mg:
             if mg['LIMIT'] in self.limits:
                 info['limitType'] = self.limits[mg['LIMIT']]
             else:
                 tmp = handText[0:100]
-                log.error(_("Limit not found in %s.") % tmp)
-                raise FpdbParseError(_("Limit not found in %s.") % tmp)
+                log.error(_("WinamaxToFpdb.determineGameType: Limit not found in %s.") % tmp)
+                raise FpdbParseError
         if 'GAME' in mg:
             (info['base'], info['category']) = self.games[mg['GAME']]
         if 'SB' in mg:
             info['sb'] = mg['SB']
         if 'BB' in mg:
             info['bb'] = mg['BB']
+            
+        if info['limitType'] == 'fl' and info['bb'] is not None:
+            info['sb'] = str((Decimal(mg['SB'])/2).quantize(Decimal("0.01")))
+            info['bb'] = str(Decimal(mg['SB']).quantize(Decimal("0.01")))
 
         return info
 
     def readHandInfo(self, hand):
         info = {}
         m =  self.re_HandInfo.search(hand.handText)
+        if m is None:
+            tmp = hand.handText[0:200]
+            log.error(_("WinamaxToFpdb.readHandInfo: '%s'") % tmp)
+            raise FpdbParseError
 
-        if m:
-            info.update(m.groupdict())
-
+        info.update(m.groupdict())
         #log.debug("readHandInfo: %s" % info)
         for key in info:
             if key == 'DATETIME':
@@ -216,13 +214,11 @@ class Winamax(HandHistoryConverter):
                     log.error("readHandInfo: " + _("DATETIME not matched: '%s'") % info[key])
                     #print "DEBUG: readHandInfo: DATETIME not matched: '%s'" % info[key]
                 hand.startTime = datetime.datetime.strptime(datetimestr, "%Y/%m/%d %H:%M:%S")
-                hand.startTime = HandHistoryConverter.changeTimezone(hand.startTime, "CET", "UTC")
             if key == 'HID1':
                 # Need to remove non-alphanumerics for MySQL
-#                hand.handid = "1%.9d%s%s"%(int(info['HID2']),info['HID1'],info['HID3'])
-                hand.handid = "%s%s%s"%(int(info['HID1']),info['HID2'],info['HID3'])
-                if len (hand.handid) > 19:
-                    hand.handid = "%s%s" % (int(info['HID2']), int(info['HID3']))
+                # Concatenating all three or just HID2 + HID3 can produce out of range values
+                # HID should not be greater than 14 characters to ensure this
+                hand.handid = "%s%s" % (int(info['HID1'][:14]), int(info['HID2']))
                     
 #            if key == 'HID3':
 #                hand.handid = int(info['HID3'])   # correct hand no (REB)
@@ -230,6 +226,9 @@ class Winamax(HandHistoryConverter):
                 hand.tourNo = info[key]
             if key == 'TABLE':
                 hand.tablename = info[key]
+                if hand.gametype['type'] == 'tour':
+                    hand.tablename = info['TABLENO']
+                    hand.roundPenny = True
                 # TODO: long-term solution for table naming on Winamax.
                 if hand.tablename.endswith(u'No Limit Hold\'em'):
                     hand.tablename = hand.tablename[:-len(u'No Limit Hold\'em')] + u'NLHE'
@@ -246,7 +245,7 @@ class Winamax(HandHistoryConverter):
                         if k in info.keys() and info[k]:
                             info[k] = info[k].replace(',','.')
 
-                    if info[key] == 'Gratuit' or info[key] == 'Freeroll':
+                    if info['FREETICKET'] is not None:
                         hand.buyin = 0
                         hand.fee = 0
                         hand.buyinCurrency = "FREE"
@@ -257,11 +256,17 @@ class Winamax(HandHistoryConverter):
                             hand.buyinCurrency="EUR"
                         elif info[key].find("FPP")!=-1:
                             hand.buyinCurrency="WIFP"
+                        elif info[key].find("Free")!=-1:
+                            hand.buyinCurrency="WIFP"
+                        elif info['MONEY']:
+                            hand.buyinCurrency="EUR"
                         else:
-                            #FIXME: handle other currencies (are there other currencies?)
-                            raise FpdbParseError(_("Failed to detect currency.") + " Hand ID: %s: '%s'" % (hand.handid, info[key]))
+                            hand.buyinCurrency="play"
 
-                        info['BIAMT'] = info['BIAMT'].strip(u'$€FPP')
+                        if info['BIAMT'] is not None:
+                            info['BIAMT'] = info['BIAMT'].strip(u'$€FPP')
+                        else:
+                            info['BIAMT'] = 0
 
                         if hand.buyinCurrency!="WIFP":
                             if info['BOUNTY'] != None:
@@ -286,21 +291,30 @@ class Winamax(HandHistoryConverter):
                         else:
                             hand.buyin = int(Decimal(info['BIAMT']))
                             hand.fee = 0
+                        if hand.buyin == 0 and hand.fee == 0:
+                            hand.buyinCurrency = "FREE"
 
             if key == 'LEVEL':
                 hand.level = info[key]
 
-        m =  self.re_Button.search(hand.handText)
-        hand.buttonpos = m.groupdict().get('BUTTON', None)
-
         hand.mixed = None
 
     def readPlayerStacks(self, hand):
-        #log.debug("readplayerstacks re: '%s'" % self.re_PlayerInfo)
-        m = self.re_PlayerInfo.finditer(hand.handText)
-        for a in m:
-            hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
+        # Split hand text for Winamax, as the players listed in the hh preamble and the summary will differ
+        # if someone is sitting out.
+        # Going to parse both and only add players in the summary.
+        handsplit = hand.handText.split('*** SUMMARY ***')
+        if len(handsplit)!=2:
+            raise FpdbHandPartial(_("Hand is not cleanly split into pre and post Summary %s.") % hand.handid)
+        pre, post = handsplit
+        m = self.re_PlayerInfo.finditer(pre)
+        plist = {}
 
+        # Get list of players in header.
+        for a in m:
+            if plist.get(a.group('PNAME')) is None:
+                hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
+                plist[a.group('PNAME')] = [int(a.group('SEAT')), a.group('CASH')]
 
     def markStreets(self, hand):
         m =  re.search(r"\*\*\* ANTE\/BLINDS \*\*\*(?P<PREFLOP>.+(?=\*\*\* FLOP \*\*\*)|.+)"
@@ -349,6 +363,8 @@ class Winamax(HandHistoryConverter):
             #hand.addBlind(None, None, None)
         for a in self.re_PostBB.finditer(hand.handText):
             hand.addBlind(a.group('PNAME'), 'big blind', a.group('BB'))
+            amount = Decimal(a.group('BB').replace(u',', u''))
+            hand.lastBet['PREFLOP'] = amount
         for a in self.re_PostDead.finditer(hand.handText):
             #print "DEBUG: Found dead blind: addBlind(%s, 'secondsb', %s)" %(a.group('PNAME'), a.group('DEAD'))
             hand.addBlind(a.group('PNAME'), 'secondsb', a.group('DEAD'))
@@ -379,24 +395,28 @@ class Winamax(HandHistoryConverter):
             for found in m:
                 hand.hero = found.group('PNAME')
                 newcards = found.group('CARDS').split(' ')
-#                print "DEBUG: addHoleCards(%s, %s, %s)" %(street, hand.hero, newcards)
+#                print "DEBUG: %s addHoleCards(%s, %s, %s)" %(hand.handid, street, hand.hero, newcards)
                 hand.addHoleCards(street, hand.hero, closed=newcards, shown=False, mucked=False, dealt=True)
                 log.debug(_("Hero cards %s: %s") % (hand.hero, newcards))
 
     def readAction(self, hand, street):
         m = self.re_Action.finditer(hand.streets[street])
         for action in m:
-            acts = action.groupdict()
-            if action.group('ATYPE') == ' raises':
-                hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
-            elif action.group('ATYPE') == ' calls':
-                hand.addCall( street, action.group('PNAME'), action.group('BET') )
-            elif action.group('ATYPE') == ' bets':
-                hand.addBet( street, action.group('PNAME'), action.group('BET') )
-            elif action.group('ATYPE') == ' folds':
+            #acts = action.groupdict()
+            #print "DEBUG: acts: %s" % acts
+            if action.group('ATYPE') == ' folds':
                 hand.addFold( street, action.group('PNAME'))
             elif action.group('ATYPE') == ' checks':
                 hand.addCheck( street, action.group('PNAME'))
+            elif action.group('ATYPE') == ' calls':
+                hand.addCall( street, action.group('PNAME'), action.group('BET') )
+            elif action.group('ATYPE') == ' raises':
+                hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
+            elif action.group('ATYPE') == ' bets':
+                if street in ('PREFLOP', 'DEAL', 'BLINDSANTES'):
+                    hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
+                else:
+                    hand.addBet( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' discards':
                 hand.addDiscard(street, action.group('PNAME'), action.group('BET'), action.group('DISCARDED'))
             elif action.group('ATYPE') == ' stands pat':
@@ -415,53 +435,9 @@ class Winamax(HandHistoryConverter):
             hand.addShownCards(cards, shows.group('PNAME'))
 
     def readCollectPot(self,hand):
-        # Winamax has unfortunately thinks that a sidepot is created
-        # when there is uncalled money in the pot - something that can
-        # only happen when a player is all-in
-
-        # Becuase of this, we need to do the same calculations as class Pot()
-        # and determine if the amount returned is the same as the amount collected
-        # if so then the collected line is invalid
-
-        total = sum(hand.pot.committed.values()) + sum(hand.pot.common.values())
-
-        # Return any uncalled bet.
-        committed = sorted([ (v,k) for (k,v) in hand.pot.committed.items()])
-        #print "DEBUG: committed: %s" % committed
-        returned = {}
-        lastbet = committed[-1][0] - committed[-2][0]
-        if lastbet > 0: # uncalled
-            returnto = committed[-1][1]
-            #print "DEBUG: returning %f to %s" % (lastbet, returnto)
-            total -= lastbet
-            returned[returnto] = lastbet
-
-        collectees = []
-
-        tp = self.re_Total.search(hand.handText)
-        rake = tp.group('RAKE')
-        if rake == None:
-            rake = 0
+        hand.setUncalledBets(True)
         for m in self.re_CollectPot.finditer(hand.handText):
-            collectees.append([m.group('PNAME'), m.group('POT')])
-
-        #print "DEBUG: Total pot: %s" % tp.groupdict()
-        #print "DEBUG: According to pot: %s" % total
-        #print "DEBUG: Rake: %s" % rake
-
-        if len(collectees) == 1:
-            plyr, p = collectees[0]
-            # p may be wrong, use calculated total - rake
-            p = total - Decimal(rake)
-            #print "DEBUG: len1: addCollectPot(%s,%s)" %(plyr, p)
-            hand.addCollectPot(player=plyr,pot=p)
-        else:
-            for plyr, p in collectees:
-                if plyr in returned.keys():
-                    p = Decimal(p) - returned[plyr]
-                if p > 0:
-                    #print "DEBUG: addCollectPot(%s,%s)" %(plyr, p)
-                    hand.addCollectPot(player=plyr,pot=p)
+            hand.addCollectPot(player=m.group('PNAME'), pot=m.group('POT'))
 
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):
@@ -472,3 +448,47 @@ class Winamax(HandHistoryConverter):
             if m.group('CARDS') is not None:
                 shown = True
                 hand.addShownCards(cards=cards, player=m.group('PNAME'), shown=shown, mucked=mucked)
+
+    @staticmethod
+    def getTableTitleRe(type, table_name=None, tournament = None, table_number=None):
+        """
+        SnG's
+        No Limit Hold'em(17027463)#0 - 20-40 NL Holdem  - Buy-in: 1€
+        No Limit Hold'em(17055704)#0 - 300-600 (ante 75) NL Holdem  - Buy-in: 0,50€
+        No Limit Hold'em(17056243)#2 - 400-800 (ante 40) NL Holdem  - Buy-in: 0,50€
+        Deglingos !(17060078)#0 - 30-60 NL Holdem  - Buy-in: 0,50€
+        Deglingos Qualif. 2€(17060167)#0 - 20-40 NL Holdem  - Buy-in: 0,50€
+        Double Shootout(17059623)#1 - 15-30 NL Holdem  - Buy-in: 0,50€
+        Double Shootout(17060527)#1 - 40-80 NL Holdem  - Buy-in: 0,50€
+        No Limit Hold'em(17056975)#0 - 300-600 (ante 75) NL Holdem  - Buy-in: 0,50€
+        No Limit Hold'em(17056975)#0 - 300-600 (ante 75) NL Holdem  - Buy-in: 0,50€
+        No Limit Hold'em(17059475)#2 - 15-30 NL Holdem  - Buy-in: 1€
+        No Limit Hold'em(17059934)#0 - 15-30 NL Holdem  - Buy-in: 0,50€
+        No Limit Hold'em(17059934)#0 - 20-40 NL Holdem  - Buy-in: 0,50€
+        Pot Limit Omaha(17059108)#0 - 60-120 PL Omaha  - Buy-in: 0,50€
+        Qualificatif 2€(17057954)#0 - 80-160 NL Holdem  - Buy-in: 0,50€
+        Qualificatif 5€(17057018)#0 - 300-600 (ante 30) NL Holdem  - Buy-in: 1€
+        Quitte ou Double(17057267)#0 - 150-300 PL Omaha  - Buy-in: 0,50€
+        Quitte ou Double(17058093)#0 - 100-200 (ante 10) NL Holdem  - Buy-in: 0,50€
+        Starting Block Winamax Poker Tour(17059192)#0 - 30-60 NL Holdem  - Buy-in: 0€
+        MTT's
+        1€ et un autre...(16362149)#016 - 60-120 (ante 10) NL Holdem  - Buy-in: 1€
+        2€ et l'apéro...(16362145)#000 - 5k-10k (ante 1k) NL Holdem  - Buy-in: 2€
+        Deepstack Hold'em(16362363)#013 - 200-400 (ante 30) NL Holdem  - Buy-in: 5€
+        Deglingos MAIN EVENT(16362466)#002 - 10-20 NL Holdem  - Buy-in: 2€
+        Hold'em(16362170)#013 - 30-60 NL Holdem  - Buy-in: 2€
+        MAIN EVENT(16362311)#008 - 300-600 (ante 60) NL Holdem  - Buy-in: 150€
+        MiniRoll 0.25€(16362117)#045 - 1,25k-2,50k (ante 250) NL Holdem  - Buy-in: 0,25€
+        MiniRoll 0.50€(16362116)#018 - 20k-40k (ante 4k) NL Holdem  - Buy-in: 0,50€
+        MiniRoll 0.50€(16362118)#007 - 75-150 (ante 15) NL Holdem  - Buy-in: 0,50€
+        Qualificatif 5€(16362201)#010 - 10-20 NL Holdem  - Buy-in: 0,50€
+        Tremplin Caen 2(15290669)#026 - 2,50k-5k (ante 500) NL Holdem  - Buy-in: 0€
+        Freeroll 250€(16362273)#035 - 2,50k-5k (ante 500) NL Holdem  - Buy-in: 0€
+        """
+        log.info("Winamax.getTableTitleRe: table_name='%s' tournament='%s' table_number='%s'" % (table_name, tournament, table_number))
+        regex = "%s /" % (table_name)
+        if tournament:
+            regex = "\(%s\)#(%s|%03d)" % (tournament, table_number,int(table_number))
+        log.info("Winamax.getTableTitleRe: returns: '%s'" % (regex))
+        return regex
+

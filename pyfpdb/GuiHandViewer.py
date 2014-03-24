@@ -23,17 +23,21 @@ import L10n
 _ = L10n.get_translation()
 
 
-from Hand import *
+import Hand
+import Card
 import Configuration
 import Database
 import SQL
-import fpdb_import
 import Filters
+import Deck
+
 import pygtk
 pygtk.require('2.0')
 import gtk
 import math
 import gobject
+
+from cStringIO import StringIO
 
 import copy
 
@@ -159,7 +163,6 @@ class GuiHandViewer:
 
         self.playing = False
 
-        self.deck_image = "Cards01.png" #FIXME: read from config (requires deck to be defined somewhere appropriate
         self.tableImage = None
         self.playerBackdrop = None
         self.cardImages = None
@@ -167,20 +170,21 @@ class GuiHandViewer:
         #      replicate the copy_area() function from Pixbuf in the Pixmap class
         #      cardImages is used for the tables display card_images is used for the
         #      table display. Sooner or later we should probably use one or the other.
-        card_images = self.init_card_images(config)
-
+        self.deck_instance = Deck.Deck(self.config, height=42, width=30)
+        card_images = self.init_card_images(self.config)
+       
     def init_card_images(self, config):
         suits = ('s', 'h', 'd', 'c')
         ranks = (14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2)
-        pb = gtk.gdk.pixbuf_new_from_file(config.execution_path(self.deck_image))
 
         for j in range(0, 13):
             for i in range(0, 4):
                 loc = Card.cardFromValueSuit(ranks[j], suits[i])
-                card_images[loc] = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, pb.get_has_alpha(), pb.get_bits_per_sample(), 30, 42)
-                pb.copy_area(30*j, 42*i, 30, 42, card_images[loc], 0, 0)
-        card_images[0] = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, pb.get_has_alpha(), pb.get_bits_per_sample(), 30, 42)
-        pb.copy_area(30*13, 0, 30, 42, card_images[0], 0, 0)
+                card_image = self.deck_instance.card(suits[i], ranks[j])
+                #must use copy(), method_instance not usable in global variable
+                card_images[loc] = card_image.copy()
+        back_image = self.deck_instance.back()
+        card_images[0] = back_image.copy()
         return card_images
 
     def loadHands(self, button, userdata):
@@ -296,6 +300,27 @@ class GuiHandViewer:
             self.hands[handid] = self.importhand(handid)
         self.refreshHands()
     
+    def copyHandToClipboard(self, view, event, hand):
+        handText = StringIO()
+        hand.writeHand(handText)
+        clipboard = gtk.Clipboard(display=gtk.gdk.display_get_default(), selection="CLIPBOARD")
+        clipboard.set_text(handText.getvalue(), len=-1)
+
+    def contextMenu(self, view, event):
+        if(event.button != 3):
+            return False
+        coords = event.get_coords()
+        path = view.get_path_at_pos(int(coords[0]), int(coords[1]))
+        model = view.get_model()
+        hand = self.hands[int(model.get_value(model.get_iter(path[0]), self.colnum['HandId']))]
+        m = gtk.Menu()
+        i = gtk.MenuItem('Copy to clipboard')
+        i.connect('button-press-event', self.copyHandToClipboard, hand)
+        i.show()
+        m.append(i)
+        m.popup(None, None, None, event.button, event.time, None)
+        return False
+
     def refreshHands(self):
         try:
             self.handsWindow.destroy()
@@ -356,6 +381,7 @@ class GuiHandViewer:
         #selection = self.view.get_selection()
         #selection.set_select_function(self.select_hand, None, True)     #listen on selection (single click)
         self.view.connect('row-activated', self.row_activated)           #listen to double klick
+        self.view.connect('button-press-event', self.contextMenu)
 
         for handid, hand in self.hands.items():
             hero = self.filters.getHeroes()[hand.sitename]
@@ -410,7 +436,8 @@ class GuiHandViewer:
         self.handsWindow.show_all()
 
     def filter_cards_cb(self, card):
-        self.refreshHands()
+        if hasattr(self, 'hands'):     #Do not call refresh if only filters are refreshed and no hands have been loaded yet
+            self.refreshHands()
         #self.viewfilter.refilter()    #As the sorting doesnt work if this is used, a refresh is needed.
 
     def is_row_in_card_filter(self, row):
@@ -439,7 +466,9 @@ class GuiHandViewer:
         if hand.gametype['currency']=="USD":    #TODO: check if there are others ..
             currency="$"
         elif hand.gametype['currency']=="EUR":
-            currency="�"
+            currency="\xe2\x82\xac"
+        elif hand.gametype['currency']=="GBP":
+            currency="£"
         else:
             currency = hand.gametype['currency']
             
@@ -460,24 +489,10 @@ class GuiHandViewer:
         # We need at least sitename, gametype, handid
         # for the Hand.__init__
 
-        ####### Shift this section in Database.py for all to use ######
-        q = self.sql.query['get_gameinfo_from_hid']
-        q = q.replace('%s', self.sql.query['placeholder'])
+        h = Hand.hand_factory(handid, self.config, self.db)
 
-        c = self.db.get_cursor()
-
-        c.execute(q, (handid,))
-        res = c.fetchone()
-        gametype = {'category':res[1],'base':res[2],'type':res[3],'limitType':res[4],'hilo':res[5],'sb':res[6],'bb':res[7], 'currency':res[10]}
-        #FIXME: smallbet and bigbet are res[8] and res[9] respectively
-        ###### End section ########
-        if gametype['base'] == 'hold':
-            h = HoldemOmahaHand(config = self.config, hhc = None, sitename=res[0], gametype = gametype, handText=None, builtFrom = "DB", handid=handid)
-        elif gametype['base'] == 'stud':
-            h = StudHand(config = self.config, hhc = None, sitename=res[0], gametype = gametype, handText=None, builtFrom = "DB", handid=handid)
-        elif gametype['base'] == 'draw':
-            h = DrawHand(config = self.config, hhc = None, sitename=res[0], gametype = gametype, handText=None, builtFrom = "DB", handid=handid)
-        h.select(self.db, handid)
+        # Set the hero for this hand using the filter for the sitename of this hand
+        h.hero = self.filters.getHeroes()[h.sitename]
         return h
 
     '''

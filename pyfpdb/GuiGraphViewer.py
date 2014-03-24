@@ -18,18 +18,12 @@
 import L10n
 _ = L10n.get_translation()
 
-import threading
 import pygtk
 pygtk.require('2.0')
 import gtk
-import os
 import sys
-import traceback
-from time import *
+from time import time
 
-#import pokereval
-
-import fpdb_import
 import Database
 import Filters
 import Charset
@@ -43,20 +37,14 @@ try:
     from matplotlib.backends.backend_gtk import FigureCanvasGTK as FigureCanvas
     from matplotlib.backends.backend_gtkagg import NavigationToolbar2GTKAgg as NavigationToolbar
     from matplotlib.font_manager import FontProperties
-    from numpy import arange, cumsum
-    from pylab import *
+    from numpy import cumsum
 except ImportError, inst:
     print _("""Failed to load libs for graphing, graphing will not function. Please install numpy and matplotlib if you want to use graphs.""")
     print _("""This is of no consequence for other parts of the program, e.g. import and HUD are NOT affected by this problem.""")
     print "ImportError: %s" % inst.args
 
-# Must import datetime class AFTER matplotlib/numpy/pylab
-# because one of those modules messes-up the definition of datetime
-# and causes traceback on windows only when executing datetime.now()
 
-from datetime import datetime
-
-class GuiGraphViewer (threading.Thread):
+class GuiGraphViewer:
 
     def __init__(self, querylist, config, parent, debug=True):
         """Constructor for GraphViewer"""
@@ -111,6 +99,7 @@ class GuiGraphViewer (threading.Thread):
         #self.exportButton.set_sensitive(False)
         self.canvas = None
 
+        self.exportFile = None
 
         self.db.rollback()
 
@@ -225,19 +214,22 @@ class GuiGraphViewer (threading.Thread):
             self.ax.set_title((_("Profit graph for ring games")+names))
 
             #Draw plot
-            self.ax.plot(green, color='green', label=_('Hands') + ': %d\n' % len(green) + _('Profit') + ': (%s): %.2f' % (graphops['dspin'], green[-1]))
             if graphops['showdown'] == 'ON':
                 self.ax.plot(blue, color='blue', label=_('Showdown') + ' (%s): %.2f' %(graphops['dspin'], blue[-1]))
             if graphops['nonshowdown'] == 'ON':
                 self.ax.plot(red, color='red', label=_('Non-showdown') + ' (%s): %.2f' %(graphops['dspin'], red[-1]))
             if graphops['ev'] == 'ON':
                 self.ax.plot(orange, color='orange', label=_('All-in EV') + ' (%s): %.2f' %(graphops['dspin'], orange[-1]))
+            self.ax.plot(green, color='green', label=_('Hands') + ': %d\n' % len(green) + _('Profit') + ': (%s): %.2f' % (graphops['dspin'], green[-1]))
 
-            if sys.version[0:3] == '2.5':
-                self.ax.legend(loc='upper left', shadow=True, prop=FontProperties(size='smaller'))
-            else:
-                self.ax.legend(loc='upper left', fancybox=True, shadow=True, prop=FontProperties(size='smaller'))
+            # order legend, greenline on top
+            handles, labels = self.ax.get_legend_handles_labels()
+            handles = handles[-1:]+handles[:-1]
+            labels = labels[-1:]+labels[:-1]
 
+            legend = self.ax.legend(handles, labels, loc='upper left', fancybox=True, shadow=True, prop=FontProperties(size='smaller'))
+            legend.draggable(True)
+            
             self.graphBox.add(self.canvas)
             self.canvas.show()
             self.canvas.draw()
@@ -332,15 +324,18 @@ class GuiGraphViewer (threading.Thread):
         if self.fig is None:
             return # Might want to disable export button until something has been generated.
 
+        png_filter = gtk.FileFilter()
+        png_filter.add_pattern('*.png')
         dia_chooser = gtk.FileChooserDialog(title=_("Please choose the directory you wish to export to:"),
-                                            action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER,
+                                            action=gtk.FILE_CHOOSER_ACTION_SAVE,
                                             buttons=(gtk.STOCK_CANCEL,gtk.RESPONSE_CANCEL,gtk.STOCK_OK,gtk.RESPONSE_OK))
+        dia_chooser.set_filter(png_filter)
         dia_chooser.set_destroy_with_parent(True)
         dia_chooser.set_transient_for(self.parent)
-        try: 
+        if self.exportFile is not None:
             dia_chooser.set_filename(self.exportFile) # use previously chosen export path as default
-        except:
-            pass
+        else:
+            dia_chooser.set_current_name('fpdbgraph.png')
 
         response = dia_chooser.run()
         
@@ -349,16 +344,12 @@ class GuiGraphViewer (threading.Thread):
             dia_chooser.destroy()
             return
             
-        # generate a unique filename for export
-        now = datetime.now()
-        now_formatted = now.strftime("%Y%m%d%H%M%S")
-        self.exportFile = dia_chooser.get_filename() + "/fpdb" + now_formatted + ".png"
+        self.exportFile = dia_chooser.get_filename()
         dia_chooser.destroy()
         
-        #print "DEBUG: self.exportFile = %s" %(self.exportFile)
         self.fig.savefig(self.exportFile, format="png")
 
-        #display info box to confirm graph created
+        # Display info box to confirm graph created.
         diainfo = gtk.MessageDialog(parent=self.parent,
                                 flags=gtk.DIALOG_DESTROY_WITH_PARENT,
                                 type=gtk.MESSAGE_INFO,

@@ -61,6 +61,8 @@ class HandHistoryConverter():
 
     re_tzOffset = re.compile('^\w+[+-]\d{4}$')
     copyGameHeader = False
+    summaryInFile  = False
+    header         = None
 
     # maybe archive params should be one archive param, then call method in specific converter.   if archive:  convert_archive()
     def __init__( self, config, in_path = '-', out_path = '-', index=0
@@ -73,7 +75,7 @@ out_path  (default '-' = sys.stdout)
         self.config = config
         self.import_parameters = self.config.get_import_parameters()
         self.sitename = sitename
-        log.info("HandHistory init - %s site, %s subclass, in_path '%s'; out_path '%s'" 
+        log.info("HandHistory init - %s site, %s subclass, in_path '%r'; out_path '%r'"
                  % (self.sitename, self.__class__, in_path, out_path) ) # should use self.filter, not self.sitename
 
         self.index     = index
@@ -82,21 +84,24 @@ out_path  (default '-' = sys.stdout)
 
         self.in_path = in_path
         self.out_path = out_path
+        self.kodec = None
 
         self.processedHands = []
         self.numHands = 0
         self.numErrors = 0
         self.numPartial = 0
+        self.isCarraige = False
+        self.autoPop = False
 
         # Tourney object used to store TourneyInfo when called to deal with a Summary file
         self.tourney = None
 
-        if in_path == '-':
-            self.in_fh = sys.stdin
-        self.out_fh = get_out_fh(out_path, self.import_parameters)
+        #if in_path == '-':
+        #    self.in_fh = sys.stdin
+        #self.out_fh = get_out_fh(out_path, self.import_parameters)
 
         self.compiledPlayers   = set()
-        self.maxseats  = 10
+        self.maxseats  = 0
 
         self.status = True
 
@@ -120,9 +125,11 @@ HandHistoryConverter: '%(sitename)s'
         if not self.sanityCheck():
             log.warning(_("Failed sanity check"))
             return
-
+        
         self.numHands = 0
+        self.numPartial = 0
         self.numErrors = 0
+        lastParsed = None
         handsList = self.allHandsAsList()
         log.debug( _("Hands list is:") + str(handsList))
         log.info(_("Parsing %d hands") % len(handsList))
@@ -133,12 +140,25 @@ HandHistoryConverter: '%(sitename)s'
             for handText in handsList:
                 try:
                     self.processedHands.append(self.processHand(handText))
+                    lastParsed = 'stored'
                 except FpdbHandPartial, e:
                     self.numPartial += 1
-                    log.error("%s" % e)
-                except FpdbParseError, e:
+                    lastParsed = 'partial'
+                    log.debug("%s" % e)
+                except FpdbParseError:
                     self.numErrors += 1
-                    log.error("%s" % e)
+                    lastParsed = 'error'
+                    log.error(_("FpdbParseError for file '%s'") % self.in_path)
+            if lastParsed in ('partial', 'error') and self.autoPop:
+                self.index -= len(handsList[-1])
+                if self.isCarraige:
+                     self.index -= handsList[-1].count('\n')
+                handsList.pop()
+                if lastParsed=='partial':
+                    self.numPartial -= 1
+                else:
+                    self.numErrors -= 1
+                log.info(_("Removing partially written hand & resetting index"))
             self.numHands = len(handsList)
             endtime = time.time()
             log.info(_("Read %d hands (%d failed) in %.3f seconds") % (self.numHands, (self.numErrors + self.numPartial), endtime - starttime))
@@ -150,7 +170,9 @@ HandHistoryConverter: '%(sitename)s'
                 log.info(_("Summary file '%s' correctly parsed (took %.3f seconds)") % (self.in_path, endtime - starttime))
             else :
                 log.warning(_("Error converting summary file '%s' (took %.3f seconds)") % (self.in_path, endtime - starttime))
-
+    
+    def setAutoPop(self, value):
+        self.autoPop = value
                 
     def progressNotify(self):
         "A callback to the interface while events are pending"
@@ -162,8 +184,14 @@ HandHistoryConverter: '%(sitename)s'
         """Return a list of handtexts in the file at self.in_path"""
         #TODO : any need for this to be generator? e.g. stars support can email one huge file of all hands in a year. Better to read bit by bit than all at once.
         self.readFile()
-        self.obs = self.obs.strip()
+        lenobs = len(self.obs)
+        self.obs = self.obs.rstrip()
+        self.index -= (lenobs - len(self.obs))
+        self.obs = self.obs.lstrip()
+        lenobs = len(self.obs)
         self.obs = self.obs.replace('\r\n', '\n')
+        if lenobs != len(self.obs):
+            self.isCarraige = True
         # maybe archive params should be one archive param, then call method in specific converter?
         # if self.archive:
         #     self.obs = self.convert_archive(self.obs)
@@ -175,25 +203,29 @@ HandHistoryConverter: '%(sitename)s'
             # Remove  ******************** # 1 *************************
             m = re.compile('\*{20}\s#\s\d+\s\*{20,25}\s+', re.MULTILINE)
             self.obs = m.sub('', self.obs)
-
+    
         if self.obs is None or self.obs == "":
-            log.error(_("Read no hands from file: '%s'") % self.in_path)
+            log.info(_("Read no hands from file: '%s'") % self.in_path)
             return []
         handlist = re.split(self.re_SplitHands,  self.obs)
         # Some HH formats leave dangling text after the split
         # ie. </game> (split) </session>EOL
         # Remove this dangler if less than 50 characters and warn in the log
         if len(handlist[-1]) <= 50:
+            self.index -= len(handlist[-1])
+            if self.isCarraige:
+                self.index -= handlist[-1].count('\n')
             handlist.pop()
-            log.warn(_("Removing text < 50 characters"))
+            log.info(_("Removing text < 50 characters & resetting index"))
         return handlist
 
     def processHand(self, handText):
+        if self.isPartial(handText):
+            raise FpdbHandPartial(_("Could not identify as a %s hand") % self.sitename)
         if self.copyGameHeader:
-            gametype = self.determineGameType(self.whole_file)
+            gametype = self.parseHeader(handText, self.whole_file)
         else:
             gametype = self.determineGameType(handText)
-        log.debug("gametype %s" % gametype)
         hand = None
         l = None
         if gametype is None:
@@ -204,6 +236,10 @@ HandHistoryConverter: '%(sitename)s'
             # See if gametype is supported.
             if 'mix' not in gametype: gametype['mix'] = 'none'
             if 'ante' not in gametype: gametype['ante'] = 0
+            if 'buyinType' not in gametype: gametype['buyinType'] = 'regular'
+            if 'fast' not in gametype: gametype['fast'] = False
+            if 'newToGame' not in gametype: gametype['newToGame'] = False
+            if 'homeGame' not in gametype: gametype['homeGame'] = False
             type = gametype['type']
             base = gametype['base']
             limit = gametype['limitType']
@@ -211,24 +247,30 @@ HandHistoryConverter: '%(sitename)s'
 
         if l in self.readSupportedGames():
             if gametype['base'] == 'hold':
-                log.debug("hand = Hand.HoldemOmahaHand(self, self.sitename, gametype, handtext)")
                 hand = Hand.HoldemOmahaHand(self.config, self, self.sitename, gametype, handText)
             elif gametype['base'] == 'stud':
                 hand = Hand.StudHand(self.config, self, self.sitename, gametype, handText)
             elif gametype['base'] == 'draw':
                 hand = Hand.DrawHand(self.config, self, self.sitename, gametype, handText)
         else:
-            log.error(_("Unsupported game type: %s") % gametype)
-            raise FpdbParseError(_("Unsupported game type: %s") % gametype)
+            log.error(_("%s Unsupported game type: %s") % (self.sitename, gametype))
+            raise FpdbParseError
 
         if hand:
             #hand.writeHand(self.out_fh)
             return hand
         else:
-            log.error(_("Unsupported game type: %s") % gametype)
+            log.error(_("%s Unsupported game type: %s") % (self.sitename, gametype))
             # TODO: pity we don't know the HID at this stage. Log the entire hand?
-
-
+            
+    def isPartial(self, handText):
+        count = 0
+        for m in self.re_Identify.finditer(handText):
+            count += 1
+        if count!=1:
+            return True
+        return False
+    
     # These functions are parse actions that may be overridden by the inheriting class
     # This function should return a list of lists looking like:
     # return [["ring", "hold", "nl"], ["tour", "hold", "nl"]]
@@ -374,7 +416,13 @@ or None if we fail to get the info """
     # an inheriting class can calculate it for the specific site if need be.
     def getRake(self, hand):
         hand.rake = hand.totalpot - hand.totalcollected #  * Decimal('0.05') # probably not quite right
-
+        round = -1 if hand.gametype['type'] == "tour" else -0.01
+        if hand.rake < 0 and (not hand.roundPenny or hand.rake < round):
+            log.error(_("hhc.getRake(): '%s': Amount collected (%s) is greater than the pot (%s)") % (hand.handid,str(hand.totalcollected), str(hand.totalpot)))
+            raise FpdbParseError
+        elif hand.totalpot > 0 and Decimal(hand.totalpot/4) < hand.rake and not hand.fastFold:
+            log.error(_("hhc.getRake(): '%s': Suspiciously high rake (%s) > 25 pct of pot (%s)") % (hand.handid,str(hand.rake), str(hand.totalpot)))
+            raise FpdbParseError
 
     def sanityCheck(self):
         """Check we aren't going to do some stupid things"""
@@ -405,15 +453,28 @@ or None if we fail to get the info """
     def readFile(self):
         """Open in_path according to self.codepage. Exceptions caught further up"""
 
+        """ Just data!! Yes, I am bastardizing this code"""
+        self.whole_file = self.in_path
+        self.obs = self.in_path
+        self.doc = self.in_path
+        return
+
+        """ CODE BELOW THIS LINE NOT EXECUTED!!"""
+
+
         if self.filetype == "text":
             for kodec in self.__listof(self.codepage):
                 #print "trying", kodec
                 try:
-                    in_fh = codecs.open(self.in_path, 'r', kodec)
+                    if self.in_path != "-":
+                        in_fh = codecs.open(self.in_path, 'r', kodec)
+                    else:
+                        in_fh = self.in_fh
                     self.whole_file = in_fh.read()
                     in_fh.close()
                     self.obs = self.whole_file[self.index:]
                     self.index = len(self.whole_file)
+                    self.kodec = kodec
                     return True
                 except:
                     pass
@@ -428,22 +489,22 @@ or None if we fail to get the info """
     def guessMaxSeats(self, hand):
         """Return a guess at maxseats when not specified in HH."""
         # if some other code prior to this has already set it, return it
+        if not self.copyGameHeader and hand.gametype['type']=='tour':
+            return 10
+            
         if self.maxseats > 1 and self.maxseats < 11:
             return self.maxseats
+        
         mo = self.maxOccSeat(hand)
 
         if mo == 10: return 10 #that was easy
 
         if hand.gametype['base'] == 'stud':
             if mo <= 8: return 8
-            else: return mo
 
         if hand.gametype['base'] == 'draw':
             if mo <= 6: return 6
-            else: return mo
-
-        if mo == 2: return 2
-        if mo <= 6: return 6
+            
         return 10
 
     def maxOccSeat(self, hand):
@@ -500,9 +561,9 @@ or None if we fail to get the info """
             #log.debug("changeTimeZone: offset=") + str(offset))
         else: offset=0
 
-        if givenTimezone=="ET":
+        if givenTimezone in ("ET", "EST", "EDT"):
             givenTZ = timezone('US/Eastern')
-        elif (givenTimezone=="CET" or givenTimezone=="CEST"):
+        elif givenTimezone in ("CET", "CEST", "MEZ", "MESZ", "HAEC"):
             #since CEST will only be used in summer time it's ok to treat it as identical to CET.
             givenTZ = timezone('Europe/Berlin')
             #Note: Daylight Saving Time is standardised across the EU so this should be fine
@@ -515,15 +576,15 @@ or None if we fail to get the info """
              givenTZ = timezone('Europe/London')
         elif givenTimezone == 'WET': # WET is GMT with daylight saving delta
             givenTZ = timezone('WET')
-        elif givenTimezone == 'HST': # Hawaiian Standard Time
+        elif givenTimezone in ('HT', 'HST', 'HDT'): # Hawaiian Standard Time
             givenTZ = timezone('US/Hawaii')
         elif givenTimezone == 'AKT': # Alaska Time
             givenTZ = timezone('US/Alaska')
-        elif givenTimezone == 'PT': # Pacific Time
+        elif givenTimezone in ('PT', 'PST', 'PDT'): # Pacific Time
             givenTZ = timezone('US/Pacific')
-        elif givenTimezone == 'MT': # Mountain Time
+        elif givenTimezone in ('MT', 'MST', 'MDT'): # Mountain Time
             givenTZ = timezone('US/Mountain')
-        elif givenTimezone == 'CT': # Central Time
+        elif givenTimezone in ('CT', 'CST', 'CDT'): # Central Time
             givenTZ = timezone('US/Central')
         elif givenTimezone == 'AT': # Atlantic Time
             givenTZ = timezone('Canada/Atlantic')
@@ -533,21 +594,33 @@ or None if we fail to get the info """
             givenTZ = timezone('America/Argentina/Buenos_Aires')
         elif givenTimezone == 'BRT': # Brasilia Time
             givenTZ = timezone('America/Sao_Paulo')
-        elif givenTimezone == 'EET': # Eastern European Time
+        elif givenTimezone == 'VET':
+            givenTZ = timezone('America/Caracas')
+        elif givenTimezone == 'COT':
+            givenTZ = timezone('America/Bogota')
+        elif givenTimezone in ('EET', 'EEST'): # Eastern European Time
             givenTZ = timezone('Europe/Bucharest')
-        elif givenTimezone == 'MSK': # Moscow Standard Time
+        elif givenTimezone in ('MSK', 'MESZ', 'MSKS', 'MSD'): # Moscow Standard Time
             givenTZ = timezone('Europe/Moscow')
+        elif givenTimezone == 'GST':
+            givenTZ = timezone('Asia/Dubai')
+        elif givenTimezone in ('YEKT','YEKST'):
+            givenTZ = timezone('Asia/Yekaterinburg')
+        elif givenTimezone in ('KRAT','KRAST'):
+            givenTZ = timezone('Asia/Krasnoyarsk')
         elif givenTimezone == 'IST': # India Standard Time
             givenTZ = timezone('Asia/Kolkata')
+        elif givenTimezone == 'ICT':
+            givenTZ = timezone('Asia/Bangkok')
         elif givenTimezone == 'CCT': # China Coast Time
             givenTZ = timezone('Australia/West')
         elif givenTimezone == 'JST': # Japan Standard Time
             givenTZ = timezone('Asia/Tokyo')
-        elif givenTimezone == 'AWST': # Australian Western Standard Time
+        elif givenTimezone in ('AWST', 'AWT'):  # Australian Western Standard Time
             givenTZ = timezone('Australia/West')
-        elif givenTimezone == 'ACST': # Australian Central Standard Time
+        elif givenTimezone in ('ACST', 'ACT'): # Australian Central Standard Time
             givenTZ = timezone('Australia/Darwin')
-        elif givenTimezone == 'AEST': # Australian Eastern Standard Time
+        elif givenTimezone in ('AEST', 'AET'): # Australian Eastern Standard Time
             # Each State on the East Coast has different DSTs.
             # Melbournce is out because I don't like AFL, Queensland doesn't have DST
             # ACT is full of politicians and Tasmania will never notice.
@@ -555,11 +628,14 @@ or None if we fail to get the info """
             givenTZ = timezone('Australia/Sydney')
         elif givenTimezone == 'NZT': # New Zealand Time
             givenTZ = timezone('Pacific/Auckland')
+        elif givenTimezone == 'UTC': # Universal time co-ordinated
+            givenTZ = pytz.UTC
 
         if givenTZ is None:
-            # do not crash if timezone not in list, just return unconverted time
-            log.warn(_("Timezone conversion not supported") + ": " + givenTimezone + " " + str(time))
-            return time
+            # do not crash if timezone not in list, just return UTC localized time
+            log.error(_("Timezone conversion not supported") + ": " + givenTimezone + " " + str(time))
+            givenTZ = pytz.UTC
+            return givenTZ.localize(time)
 
         localisedTime = givenTZ.localize(time)
         utcTime = localisedTime.astimezone(wantedTimezone) + datetime.timedelta(seconds=-3600*(offset/100)-60*(offset%100))
@@ -571,9 +647,9 @@ or None if we fail to get the info """
     def getTableTitleRe(type, table_name=None, tournament = None, table_number=None):
         "Returns string to search in windows titles"
         if type=="tour":
-            return "%s.+Table %s" % (tournament, table_number)
+            return ( re.escape(str(tournament)) + ".+\\Table " + re.escape(str(table_number)) )
         else:
-            return table_name
+            return re.escape(table_name)
 
     @staticmethod
     def getTableNoRe(tournament):
@@ -584,8 +660,31 @@ or None if we fail to get the info """
 
     @staticmethod
     def clearMoneyString(money):
-        "Renders 'numbers' like '1 200' and '2,000'"
-        return money.replace(' ', '').replace(',', '')
+        """Converts human readable string representations of numbers like
+        '1 200', '2,000', '0,01' to more machine processable form - no commas, 1 decimal point
+        """
+        if not money:
+            return money
+        money = money.replace(' ', '')
+        money = money.replace(u'\xa0', u'')
+        if 'K' in money:
+            money = money.replace('K', '000')
+        if 'M' in money:
+            money = money.replace('M', '000000')
+        if money[-1] in ('.', ','):
+            money = money[:-1]
+        if len(money) < 3:
+            return money # No commas until 0,01 or 1,00
+        if money[-3] == ',':
+            money = money[:-3] + '.' + money[-2:]
+        if len(money) > 7:
+            if money[-7] == '.':
+                money = money[:-7] + ',' + money[-6:]
+        if len(money) > 4:
+            if money[-4] == '.':
+                money = money[:-4] + ',' + money[-3:]
+
+        return money.replace(',', '')
 
 def getTableTitleRe(config, sitename, *args, **kwargs):
     "Returns string to search in windows titles for current site"
@@ -599,7 +698,7 @@ def getTableNoRe(config, sitename, *args, **kwargs):
 
 def getSiteHhc(config, sitename):
     "Returns HHC class for current site"
-    hhcName = config.supported_sites[sitename].converter
+    hhcName = config.hhcs[sitename].converter
     hhcModule = __import__(hhcName)
     return getattr(hhcModule, hhcName[:-6])
 

@@ -41,8 +41,9 @@ class PokerStars(HandHistoryConverter):
     substitutions = {
                      'LEGAL_ISO' : "USD|EUR|GBP|CAD|FPP",      # legal ISO currency codes
                             'LS' : u"\$|\xe2\x82\xac|\u20ac|\£|", # legal currency symbols - Euro(cp1252, utf-8)
-                           'PLYR': r'(?P<PNAME>.+?)',
+                           'PLYR': r'\s?(?P<PNAME>.+?)',
                             'CUR': u"(\$|\xe2\x82\xac|\u20ac||\£|)",
+                          'BRKTS': r'(\(button\) |\(small blind\) |\(big blind\) |\(button\) \(small blind\) |\(button\) \(big blind\) )?',
                     }
                     
     # translations from captured groups to fpdb info strings
@@ -55,6 +56,7 @@ class PokerStars(HandHistoryConverter):
                         '6.00': ('1.00', '3.00'),         '6': ('1.00', '3.00'),
                         '8.00': ('2.00', '4.00'),         '8': ('2.00', '4.00'),
                        '10.00': ('2.00', '5.00'),        '10': ('2.00', '5.00'),
+                       '16.00': ('4.00', '8.00'),        '16': ('4.00', '8.00'),
                        '20.00': ('5.00', '10.00'),       '20': ('5.00', '10.00'),
                        '30.00': ('10.00', '15.00'),      '30': ('10.00', '15.00'),
                        '40.00': ('10.00', '20.00'),      '40': ('10.00', '20.00'),
@@ -64,20 +66,30 @@ class PokerStars(HandHistoryConverter):
                       '150.00': ('50.00', '75.00'),     '150': ('50.00', '75.00'),
                       '200.00': ('50.00', '100.00'),    '200': ('50.00', '100.00'),
                       '400.00': ('100.00', '200.00'),   '400': ('100.00', '200.00'),
+                      '600.00': ('150.00', '300.00'),   '600': ('150.00', '300.00'),
                       '800.00': ('200.00', '400.00'),   '800': ('200.00', '400.00'),
-                     '1000.00': ('250.00', '500.00'),  '1000': ('250.00', '500.00')
-                     '2000.00': ('500.00', '1000.00'), '2000': ('500.00', '1000.00')
+                     '1000.00': ('250.00', '500.00'),  '1000': ('250.00', '500.00'),
+                     '2000.00': ('500.00', '1000.00'), '2000': ('500.00', '1000.00'),
                   }
 
-    limits = { 'No Limit':'nl', 'Pot Limit':'pl', 'Limit':'fl', 'LIMIT':'fl' }
+    limits = { 'No Limit':'nl', 'NO LIMIT':'nl', 'Pot Limit':'pl', 'POT LIMIT':'pl', 'Limit':'fl', 'LIMIT':'fl' , 'Pot Limit Pre-Flop, No Limit Post-Flop': 'pn'}
     games = {                          # base, category
-                              "Hold'em" : ('hold','holdem'), 
+                              "Hold'em" : ('hold','holdem'),
+                              "HOLD'EM" : ('hold','holdem'), 
                                 'Omaha' : ('hold','omahahi'),
+                                'OMAHA' : ('hold','omahahi'),
                           'Omaha Hi/Lo' : ('hold','omahahilo'),
+                          'OMAHA HI/LO' : ('hold','omahahilo'),
+                         '5 Card Omaha' : ('hold', '5_omahahi'),
+                   '5 Card Omaha Hi/Lo' : ('hold', '5_omaha8'),
+                           'Courchevel' : ('hold', 'cour_hi'),
+                     'Courchevel Hi/Lo' : ('hold', 'cour_hilo'),
                                  'Razz' : ('stud','razz'), 
                                  'RAZZ' : ('stud','razz'),
                           '7 Card Stud' : ('stud','studhi'),
+                          '7 CARD STUD' : ('stud','studhi'),
                     '7 Card Stud Hi/Lo' : ('stud','studhilo'),
+                    '7 CARD STUD HI/LO' : ('stud','studhilo'),
                                'Badugi' : ('draw','badugi'),
               'Triple Draw 2-7 Lowball' : ('draw','27_3draw'),
               'Single Draw 2-7 Lowball' : ('draw','27_1draw'),
@@ -86,8 +98,10 @@ class PokerStars(HandHistoryConverter):
     mixes = {
                                  'HORSE': 'horse',
                                 '8-Game': '8game',
+                                '8-GAME': '8game',
                                   'HOSE': 'hose',
                          'Mixed PLH/PLO': 'plh_plo',
+                         'Mixed NLH/PLO': 'nlh_plo',
                        'Mixed Omaha H/L': 'plo_lo',
                         'Mixed Hold\'em': 'mholdem',
                            'Triple Stud': '3stud'
@@ -96,23 +110,23 @@ class PokerStars(HandHistoryConverter):
 
     # Static regexes
     re_GameInfo     = re.compile(u"""
-          PokerStars(\sHome)?\sGame\s\#(?P<HID>[0-9]+):\s+
+          (PokerStars|POKERSTARS)(?P<TITLE>\sGame|\sHand|\sHome\sGame|\sHome\sGame\sHand|Game|\sZoom\sHand|\sGAME)\s\#(?P<HID>[0-9]+):\s+
           (\{.*\}\s+)?(Tournament\s\#                # open paren of tournament info
           (?P<TOURNO>\d+),\s
           # here's how I plan to use LS
           (?P<BUYIN>(?P<BIAMT>[%(LS)s\d\.]+)?\+?(?P<BIRAKE>[%(LS)s\d\.]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|Freeroll)\s+)?
           # close paren of tournament info
-          (?P<MIXED>HORSE|8\-Game|HOSE|Mixed\sOmaha\sH/L|Mixed\sHold\'em|Mixed\sPLH/PLO|Triple\sStud)?\s?\(?
-          (?P<GAME>Hold\'em|Razz|RAZZ|7\sCard\sStud|7\sCard\sStud\sHi/Lo|Omaha|Omaha\sHi/Lo|Badugi|Triple\sDraw\s2\-7\sLowball|Single\sDraw\s2\-7\sLowball|5\sCard\sDraw)\s
-          (?P<LIMIT>No\sLimit|Limit|LIMIT|Pot\sLimit)\)?,?\s
+          (?P<MIXED>HORSE|8\-Game|8\-GAME|HOSE|Mixed\sOmaha\sH/L|Mixed\sHold\'em|Mixed\sPLH/PLO|Mixed\sNLH/PLO|Triple\sStud)?\s?\(?
+          (?P<GAME>Hold\'em|HOLD\'EM|Razz|RAZZ|7\sCard\sStud|7\sCARD\sSTUD|7\sCard\sStud\sHi/Lo|7\sCARD\sSTUD\sHI/LO|Omaha|OMAHA|Omaha\sHi/Lo|OMAHA\sHI/LO|Badugi|Triple\sDraw\s2\-7\sLowball|Single\sDraw\s2\-7\sLowball|5\sCard\sDraw|5\sCard\sOmaha(\sHi/Lo)?|Courchevel(\sHi/Lo)?)\s
+          (?P<LIMIT>No\sLimit|NO\sLIMIT|Limit|LIMIT|Pot\sLimit|POT\sLIMIT|Pot\sLimit\sPre\-Flop,\sNo\sLimit\sPost\-Flop)\)?,?\s
           (-\s)?
-          (Match.*)?                  #TODO: waiting for reply from user as to what this means
+          (?P<SHOOTOUT>Match.*,\s)?
           (Level\s(?P<LEVEL>[IVXLC]+)\s)?
           \(?                            # open paren of the stakes
           (?P<CURRENCY>%(LS)s|)?
           (?P<SB>[.0-9]+)/(%(LS)s)?
           (?P<BB>[.0-9]+)
-          (?P<BLAH>\s-\s[%(LS)s\d\.]+\sCap\s-\s)?        # Optional Cap part
+          (?P<CAP>\s-\s[%(LS)s]?(?P<CAPAMT>[.0-9]+)\sCap\s-\s)?        # Optional Cap part
           \s?(?P<ISO>%(LEGAL_ISO)s)?
           \)                        # close paren of the stakes
           (?P<BLAH2>\s\[AAMS\sID:\s[A-Z0-9]+\])?         # AAMS ID: in .it HH's
@@ -121,24 +135,24 @@ class PokerStars(HandHistoryConverter):
         """ % substitutions, re.MULTILINE|re.VERBOSE)
 
     re_PlayerInfo   = re.compile(u"""
-          ^Seat\s(?P<SEAT>[0-9]+):\s
+          ^\s?Seat\s(?P<SEAT>[0-9]+):\s
           (?P<PNAME>.*)\s
-          \((%(LS)s)?(?P<CASH>[.0-9]+)\sin\schips\)""" % substitutions, 
+          \((%(LS)s)?(?P<CASH>[.0-9]+)\sin\schips\)
+          (?P<SITOUT>\sis\ssitting\sout)?""" % substitutions, 
           re.MULTILINE|re.VERBOSE)
 
     re_HandInfo     = re.compile("""
-          ^Table\s\'(?P<TABLE>[-\ \#a-zA-Z\d\']+)\'\s
+          ^\s?Table\s\'(?P<TABLE>.+?)\'\s
           ((?P<MAX>\d+)-max\s)?
           (?P<PLAY>\(Play\sMoney\)\s)?
           (Seat\s\#(?P<BUTTON>\d+)\sis\sthe\sbutton)?""", 
           re.MULTILINE|re.VERBOSE)
 
-    re_SplitHands   = re.compile('\n\n+')
+    re_Identify     = re.compile(u'(PokerStars|POKERSTARS)(\sGame|\sHand|\sHome\sGame|\sHome\sGame\sHand|Game|\sZoom\sHand|\sGAME)\s\#\d+:')
+    re_SplitHands   = re.compile('(?:\s?\n){2,}')
     re_TailSplitHands   = re.compile('(\n\n\n+)')
     re_Button       = re.compile('Seat #(?P<BUTTON>\d+) is the button', re.MULTILINE)
     re_Board        = re.compile(r"\[(?P<CARDS>.+)\]")
-#        self.re_setHandInfoRegex('.*#(?P<HID>[0-9]+): Table (?P<TABLE>[ a-zA-Z]+) - \$?(?P<SB>[.0-9]+)/\$?(?P<BB>[.0-9]+) - (?P<GAMETYPE>.*) - (?P<HR>[0-9]+):(?P<MIN>[0-9]+) ET - (?P<YEAR>[0-9]+)/(?P<MON>[0-9]+)/(?P<DAY>[0-9]+)Table (?P<TABLE>[ a-zA-Z]+)\nSeat (?P<BUTTON>[0-9]+)')    
-
     re_DateTime     = re.compile("""(?P<Y>[0-9]{4})\/(?P<M>[0-9]{2})\/(?P<D>[0-9]{2})[\- ]+(?P<H>[0-9]+):(?P<MIN>[0-9]+):(?P<S>[0-9]+)""", re.MULTILINE)
     # revised re including timezone (not currently used):
     #re_DateTime     = re.compile("""(?P<Y>[0-9]{4})\/(?P<M>[0-9]{2})\/(?P<D>[0-9]{2})[\- ]+(?P<H>[0-9]+):(?P<MIN>[0-9]+):(?P<S>[0-9]+) \(?(?P<TZ>[A-Z0-9]+)""", re.MULTILINE)
@@ -161,11 +175,13 @@ class PokerStars(HandHistoryConverter):
                          %  substitutions, re.MULTILINE|re.VERBOSE)
     re_ShowdownAction   = re.compile(r"^%s: shows \[(?P<CARDS>.*)\]" % substitutions['PLYR'], re.MULTILINE)
     re_sitsOut          = re.compile("^%s sits out" %  substitutions['PLYR'], re.MULTILINE)
-    re_ShownCards       = re.compile("^Seat (?P<SEAT>[0-9]+): %s (\(.*\) )?(?P<SHOWED>showed|mucked) \[(?P<CARDS>.*)\]( and won \([.\d]+\) with (?P<STRING>.*))?" %  substitutions['PLYR'], re.MULTILINE)
-    re_CollectPot       = re.compile(r"Seat (?P<SEAT>[0-9]+): %(PLYR)s (\(button\) |\(small blind\) |\(big blind\) |\(button\) \(small blind\) |\(button\) \(big blind\) )?(collected|showed \[.*\] and won) \(%(CUR)s(?P<POT>[.\d]+)\)(, mucked| with.*|)" %  substitutions, re.MULTILINE)
+    re_ShownCards       = re.compile("^Seat (?P<SEAT>[0-9]+): %(PLYR)s %(BRKTS)s(?P<SHOWED>showed|mucked) \[(?P<CARDS>.*)\]( and (lost|(won|collected) \(%(CUR)s(?P<POT>[.\d]+)\)) with (?P<STRING>.+?)(,\sand\s(won\s\(%(CUR)s[.\d]+\)|lost)\swith\s(?P<STRING2>.*))?)?$" % substitutions, re.MULTILINE)
+    re_CollectPot       = re.compile(r"Seat (?P<SEAT>[0-9]+): %(PLYR)s %(BRKTS)s(collected|showed \[.*\] and (won|collected)) \(%(CUR)s(?P<POT>[.\d]+)\)(, mucked| with.*|)" %  substitutions, re.MULTILINE)
+    re_CollectPot2      = re.compile(r"^%(PLYR)s collected %(CUR)s(?P<POT>[.\d]+)" %  substitutions, re.MULTILINE)
     re_WinningRankOne   = re.compile(u"^%(PLYR)s wins the tournament and receives %(CUR)s(?P<AMT>[\.0-9]+) - congratulations!$" %  substitutions, re.MULTILINE)
     re_WinningRankOther = re.compile(u"^%(PLYR)s finished the tournament in (?P<RANK>[0-9]+)(st|nd|rd|th) place and received %(CUR)s(?P<AMT>[.0-9]+)\.$" %  substitutions, re.MULTILINE)
     re_RankOther        = re.compile(u"^%(PLYR)s finished the tournament in (?P<RANK>[0-9]+)(st|nd|rd|th) place$" %  substitutions, re.MULTILINE)
+    re_Cancelled        = re.compile('Hand\scancelled', re.MULTILINE)
 
     def compilePlayerRegexs(self,  hand):
         pass
@@ -174,6 +190,7 @@ class PokerStars(HandHistoryConverter):
         return [["ring", "hold", "nl"],
                 ["ring", "hold", "pl"],
                 ["ring", "hold", "fl"],
+                ["ring", "hold", "pn"],
 
                 ["ring", "stud", "fl"],
 
@@ -184,6 +201,7 @@ class PokerStars(HandHistoryConverter):
                 ["tour", "hold", "nl"],
                 ["tour", "hold", "pl"],
                 ["tour", "hold", "fl"],
+                ["tour", "hold", "pn"],
 
                 ["tour", "stud", "fl"],
                 
@@ -196,10 +214,9 @@ class PokerStars(HandHistoryConverter):
         info = {}
         m = self.re_GameInfo.search(handText)
         if not m:
-            tmp = handText[0:150]
-            log.error(_("Unable to recognise gametype from: '%s'") % tmp)
-            log.error("determineGameType: " + _("Raising FpdbParseError"))
-            raise FpdbParseError(_("Unable to recognise gametype from: '%s'") % tmp)
+            tmp = handText[0:200]
+            log.error(_("PokerStarsToFpdb.determineGameType: '%s'") % tmp)
+            raise FpdbParseError
 
         mg = m.groupdict()
         if 'LIMIT' in mg:
@@ -214,20 +231,39 @@ class PokerStars(HandHistoryConverter):
             info['currency'] = self.currencies[mg['CURRENCY']]
         if 'MIXED' in mg:
             if mg['MIXED'] is not None: info['mix'] = self.mixes[mg['MIXED']]
+        if 'Zoom' in mg['TITLE']:
+            info['fast'] = True
+        else:
+            info['fast'] = False
+        if 'Home' in mg['TITLE']:
+            info['homeGame'] = True
+        else:
+            info['homeGame'] = False
+        if 'CAP' in mg and mg['CAP'] is not None:
+            info['buyinType'] = 'cap'
+        else:
+            info['buyinType'] = 'regular'
                 
         if 'TOURNO' in mg and mg['TOURNO'] is None:
             info['type'] = 'ring'
         else:
             info['type'] = 'tour'
+            
+        if not mg['CURRENCY'] and info['type']=='ring':
+            info['currency'] = 'play'
 
-        if info['limitType'] == 'fl' and info['bb'] is not None and info['type'] == 'ring':
-            try:
-                info['sb'] = self.Lim_Blinds[mg['BB']][0]
-                info['bb'] = self.Lim_Blinds[mg['BB']][1]
-            except KeyError:
-                log.error(_("Lim_Blinds has no lookup for '%s'") % mg['BB'])
-                log.error("determineGameType: " + _("Raising FpdbParseError"))
-                raise FpdbParseError(_("Lim_Blinds has no lookup for '%s'") % mg['BB'])
+        if info['limitType'] == 'fl' and info['bb'] is not None:
+            if info['type'] == 'ring':
+                try:
+                    info['sb'] = self.Lim_Blinds[mg['BB']][0]
+                    info['bb'] = self.Lim_Blinds[mg['BB']][1]
+                except KeyError:
+                    tmp = handText[0:200]
+                    log.error(_("PokerStarsToFpdb.determineGameType: Lim_Blinds has no lookup for '%s' - '%s'") % (mg['BB'], tmp))
+                    raise FpdbParseError
+            else:
+                info['sb'] = str((Decimal(mg['SB'])/2).quantize(Decimal("0.01")))
+                info['bb'] = str(Decimal(mg['SB']).quantize(Decimal("0.01")))    
 
         return info
 
@@ -236,13 +272,14 @@ class PokerStars(HandHistoryConverter):
         m  = self.re_HandInfo.search(hand.handText,re.DOTALL)
         m2 = self.re_GameInfo.search(hand.handText)
         if m is None or m2 is None:
-            log.error(_("No match in readHandInfo: '%s'") % hand.handText[0:100])
-            raise FpdbParseError(_("No match in readHandInfo: '%s'") % hand.handText[0:100])
+            tmp = hand.handText[0:200]
+            log.error(_("PokerStarsToFpdb.readHandInfo: '%s'") % tmp)
+            raise FpdbParseError
 
         info.update(m.groupdict())
         info.update(m2.groupdict())
 
-        log.debug("readHandInfo: %s" % info)
+        #log.debug("readHandInfo: %s" % info)
         for key in info:
             if key == 'DATETIME':
                 #2008/11/12 10:00:48 CET [2008/11/12 4:00:48 ET] # (both dates are parsed so ET date overrides the other)
@@ -283,7 +320,8 @@ class PokerStars(HandHistoryConverter):
                             hand.buyinCurrency="play"
                         else:
                             #FIXME: handle other currencies, play money
-                            raise FpdbParseError(_("Failed to detect currency.") + " Hand ID: %s: '%s'" % (hand.handid, info[key]))
+                            log.error(_("PokerStarsToFpdb.readHandInfo: Failed to detect currency.") + " Hand ID: %s: '%s'" % (hand.handid, info[key]))
+                            raise FpdbParseError
 
                         info['BIAMT'] = info['BIAMT'].strip(u'$€£FPP')
                         
@@ -301,27 +339,39 @@ class PokerStars(HandHistoryConverter):
 
                             info['BIRAKE'] = info['BIRAKE'].strip(u'$€£')
 
-                            hand.buyin = int(100*Decimal(info['BIAMT']))
+                            hand.buyin = int(100*Decimal(info['BIAMT'])) + hand.koBounty
                             hand.fee = int(100*Decimal(info['BIRAKE']))
                         else:
                             hand.buyin = int(Decimal(info['BIAMT']))
                             hand.fee = 0
+                    if 'Zoom' in info['TITLE']:
+                        hand.isFast = True
+                    else:
+                        hand.isFast = False
+                    if 'Home' in info['TITLE']:
+                        hand.isHomeGame = True
+                    else:
+                        hand.isHomeGame = False
             if key == 'LEVEL':
-                hand.level = info[key]
-
+                hand.level = info[key]       
+            if key == 'SHOOTOUT' and info[key] != None:
+                hand.isShootout = True
             if key == 'TABLE':
-                if hand.tourNo != None:
-                    hand.tablename = re.split(" ", info[key])[1]
+                tablesplit = re.split(" ", info[key])
+                if hand.tourNo != None and len(tablesplit)>1:
+                    hand.tablename = tablesplit[1]
                 else:
                     hand.tablename = info[key]
             if key == 'BUTTON':
                 hand.buttonpos = info[key]
             if key == 'MAX' and info[key] != None:
                 hand.maxseats = int(info[key])
-
-            if key == 'PLAY' and info['PLAY'] is not None:
-#                hand.currency = 'play' # overrides previously set value
-                hand.gametype['currency'] = 'play'
+                
+        if 'Zoom' in self.in_path:
+            (hand.gametype['fast'], hand.isFast) = (True, True)
+                
+        if self.re_Cancelled.search(hand.handText):
+            raise FpdbHandPartial(_("Hand '%s' was cancelled.") % hand.handid)
     
     def readButton(self, hand):
         m = self.re_Button.search(hand.handText)
@@ -334,7 +384,7 @@ class PokerStars(HandHistoryConverter):
         log.debug("readPlayerStacks")
         m = self.re_PlayerInfo.finditer(hand.handText)
         for a in m:
-            hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'))
+            hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'), None, a.group('SITOUT'))
 
     def markStreets(self, hand):
 
@@ -359,10 +409,16 @@ class PokerStars(HandHistoryConverter):
         # PREFLOP = ** Dealing down cards **
         # This re fails if,  say, river is missing; then we don't get the ** that starts the river.
         if hand.gametype['base'] in ("hold"):
-            m =  re.search(r"\*\*\* HOLE CARDS \*\*\*(?P<PREFLOP>.+(?=\*\*\* FLOP \*\*\*)|.+)"
-                       r"(\*\*\* FLOP \*\*\*(?P<FLOP> \[\S\S \S\S \S\S\].+(?=\*\*\* TURN \*\*\*)|.+))?"
-                       r"(\*\*\* TURN \*\*\* \[\S\S \S\S \S\S] (?P<TURN>\[\S\S\].+(?=\*\*\* RIVER \*\*\*)|.+))?"
-                       r"(\*\*\* RIVER \*\*\* \[\S\S \S\S \S\S \S\S] (?P<RIVER>\[\S\S\].+))?", hand.handText,re.DOTALL)
+            m =  re.search(r"\*\*\* HOLE CARDS \*\*\*(?P<PREFLOP>(.+(?P<FLOPET>\[\S\S\]))?.+(?=\*\*\* (FIRST\s)?FLOP \*\*\*)|.+)"
+                       r"(\*\*\* FLOP \*\*\*(?P<FLOP> \[\S\S \S\S \S\S\].+(?=\*\*\* (FIRST\s)?TURN \*\*\*)|.+))?"
+                       r"(\*\*\* TURN \*\*\* \[\S\S \S\S \S\S] (?P<TURN>\[\S\S\].+(?=\*\*\* (FIRST\s)?RIVER \*\*\*)|.+))?"
+                       r"(\*\*\* RIVER \*\*\* \[\S\S \S\S \S\S \S\S] (?P<RIVER>\[\S\S\].+))?"
+                       r"(\*\*\* FIRST FLOP \*\*\*(?P<FLOP1> \[\S\S \S\S \S\S\].+(?=\*\*\* FIRST TURN \*\*\*)|.+))?"
+                       r"(\*\*\* FIRST TURN \*\*\* \[\S\S \S\S \S\S] (?P<TURN1>\[\S\S\].+(?=\*\*\* FIRST RIVER \*\*\*)|.+))?"
+                       r"(\*\*\* FIRST RIVER \*\*\* \[\S\S \S\S \S\S \S\S] (?P<RIVER1>\[\S\S\].))?"
+                       r"(\*\*\* SECOND FLOP \*\*\*(?P<FLOP2> \[\S\S \S\S \S\S\].+(?=\*\*\* SECOND TURN \*\*\*)|.+))?"
+                       r"(\*\*\* SECOND TURN \*\*\* \[\S\S \S\S \S\S] (?P<TURN2>\[\S\S\].+(?=\*\*\* SECOND RIVER \*\*\*)|.+))?"
+                       r"(\*\*\* SECOND RIVER \*\*\* \[\S\S \S\S \S\S \S\S] (?P<RIVER2>\[\S\S\].+))?", hand.handText,re.DOTALL)
         elif hand.gametype['base'] in ("stud"):
             m =  re.search(r"(?P<ANTES>.+(?=\*\*\* 3rd STREET \*\*\*)|.+)"
                            r"(\*\*\* 3rd STREET \*\*\*(?P<THIRD>.+(?=\*\*\* 4th STREET \*\*\*)|.+))?"
@@ -384,10 +440,14 @@ class PokerStars(HandHistoryConverter):
         hand.addStreets(m)
 
     def readCommunityCards(self, hand, street): # street has been matched by markStreets, so exists in this hand
-        if street in ('FLOP','TURN','RIVER'):   # a list of streets which get dealt community cards (i.e. all but PREFLOP)
+        if street in ('FLOP','TURN','RIVER') or street=='FLOPET' and hand.streets.get('FLOP')==None:   # a list of streets which get dealt community cards (i.e. all but PREFLOP)
             #print "DEBUG readCommunityCards:", street, hand.streets.group(street)
             m = self.re_Board.search(hand.streets[street])
             hand.setCommunityCards(street, m.group('CARDS').split(' '))
+        if street in ('FLOP1', 'TURN1', 'RIVER1', 'FLOP2', 'TURN2', 'RIVER2'):
+            m = self.re_Board.search(hand.streets[street])
+            hand.setCommunityCards(street, m.group('CARDS').split(' '))
+            hand.runItTimes = 2
 
     def readAntes(self, hand):
         log.debug(_("reading antes"))
@@ -457,16 +517,16 @@ class PokerStars(HandHistoryConverter):
         for action in m:
             acts = action.groupdict()
             #print "DEBUG: acts: %s" %acts
-            if action.group('ATYPE') == ' raises':
-                hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
-            elif action.group('ATYPE') == ' calls':
-                hand.addCall( street, action.group('PNAME'), action.group('BET') )
-            elif action.group('ATYPE') == ' bets':
-                hand.addBet( street, action.group('PNAME'), action.group('BET') )
-            elif action.group('ATYPE') == ' folds':
+            if action.group('ATYPE') == ' folds':
                 hand.addFold( street, action.group('PNAME'))
             elif action.group('ATYPE') == ' checks':
                 hand.addCheck( street, action.group('PNAME'))
+            elif action.group('ATYPE') == ' calls':
+                hand.addCall( street, action.group('PNAME'), action.group('BET') )
+            elif action.group('ATYPE') == ' raises':
+                hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
+            elif action.group('ATYPE') == ' bets':
+                hand.addBet( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' discards':
                 hand.addDiscard(street, action.group('PNAME'), action.group('BET'), action.group('CARDS'))
             elif action.group('ATYPE') == ' stands pat':
@@ -496,8 +556,14 @@ class PokerStars(HandHistoryConverter):
             hand.addPlayerRank (rankothers.group('PNAME'),0,rankothers.group('RANK'))
 
     def readCollectPot(self,hand):
-        for m in self.re_CollectPot.finditer(hand.handText):
-            hand.addCollectPot(player=m.group('PNAME'),pot=m.group('POT'))
+        i=0
+        if hand.runItTimes==0:
+            for m in self.re_CollectPot.finditer(hand.handText):
+                hand.addCollectPot(player=m.group('PNAME'),pot=m.group('POT'))
+                i+=1
+        if i==0:
+            for m in self.re_CollectPot2.finditer(hand.handText):
+                hand.addCollectPot(player=m.group('PNAME'),pot=m.group('POT'))
 
     def readShownCards(self,hand):
         for m in self.re_ShownCards.finditer(hand.handText):
@@ -505,6 +571,8 @@ class PokerStars(HandHistoryConverter):
                 cards = m.group('CARDS')
                 cards = cards.split(' ') # needs to be a list, not a set--stud needs the order
                 string = m.group('STRING')
+                if m.group('STRING2'):
+                    string += '|' + m.group('STRING2')
 
                 (shown, mucked) = (False, False)
                 if m.group('SHOWED') == "showed": shown = True
@@ -512,3 +580,14 @@ class PokerStars(HandHistoryConverter):
 
                 #print "DEBUG: hand.addShownCards(%s, %s, %s, %s)" %(cards, m.group('PNAME'), shown, mucked)
                 hand.addShownCards(cards=cards, player=m.group('PNAME'), shown=shown, mucked=mucked, string=string)
+
+    @staticmethod
+    def getTableTitleRe(type, table_name=None, tournament = None, table_number=None):
+        "Returns string to search in windows titles"
+        regex = re.escape(str(table_name))
+        if type=="tour":
+            regex = re.escape(str(tournament)) + ".* (Table|Tisch) " + re.escape(str(table_number))
+        log.info("Stars.getTableTitleRe: table_name='%s' tournament='%s' table_number='%s'" % (table_name, tournament, table_number))
+        log.info("Stars.getTableTitleRe: returns: '%s'" % (regex))
+        return regex
+

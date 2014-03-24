@@ -20,6 +20,8 @@ import time
 from pygame.locals import *
 from pygame.compat import geterror
 
+import Charset
+
 main_dir = os.path.split(os.path.abspath(__file__))[0]
 data_dir = os.path.join(main_dir, '.')
 
@@ -44,10 +46,9 @@ def main():
     pygame.init()
     clock = pygame.time.Clock()
     screen = pygame.display.set_mode((640, 480))
-    table_string = "Tournament 2010090009 Table %s - Blinds $600/$1200 Anto $150"
     table_no = 1
-    table_title = "Nongoma V - $200/$400 USD - Limit Holdem"
-    pygame.display.set_caption(table_title)
+    table_title = "Valparaíso / aaaaaaaaaaaaaaaaa"
+    pygame.display.set_caption(Charset.to_utf8(table_title))
     pygame.mouse.set_visible(0)
 
     # Load background image
@@ -58,7 +59,7 @@ def main():
     #Put Text On The Background, Centered
     if pygame.font:
         font = pygame.font.Font(None, 24)
-        text = font.render("FPDB Replayer Table", 1, (10, 10, 10))
+        text = font.render("Yarmouth Texas Hold'em NL -$0.01/$0.02", 1, (10, 10, 10))
         textpos = text.get_rect(centerx=background.get_width()/2)
         background.blit(text, textpos)
 

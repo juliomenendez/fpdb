@@ -18,7 +18,6 @@
 import L10n
 _ = L10n.get_translation()
 
-import threading
 import pygtk
 pygtk.require('2.0')
 import gtk
@@ -26,11 +25,10 @@ from time import time, strftime
 
 import Charset
 import TourneyFilters
-import GuiPlayerStats
 
 colalias,colshow,colheading,colxalign,colformat,coltype = 0,1,2,3,4,5
 
-class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
+class GuiTourneyPlayerStats:
     def __init__(self, config, db, sql, mainwin, debug=True):
         self.conf = config
         self.db = db
@@ -107,7 +105,7 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
         self.main_hbox.show()
     #end def __init__
 
-    def addGrid(self, vbox, query, numTourneys, tourneyTypes, playerids, sitenos, seats, dates):
+    def addGrid(self, vbox, query, numTourneys, tourneyTypes, playerids, sitenos, seats):
         #print "start of addGrid query", query
         #print "start of addGrid. numTourneys:",numTourneys,"tourneyTypes:", tourneyTypes, "playerids:",playerids
         counter = 0
@@ -116,7 +114,7 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
         grid=numTourneys #TODO: should this be numTourneyTypes?
         
         query = self.sql.query[query]
-        query = self.refineQuery(query, numTourneys, tourneyTypes, playerids, sitenos, seats, dates)
+        query = self.refineQuery(query, numTourneys, tourneyTypes, playerids, sitenos, seats)
         #print "DEBUG:\n%s" % query
         self.cursor.execute(query)
         result = self.cursor.fetchall()
@@ -185,6 +183,14 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
                     value = result[sqlrow][colnames.index(column[colalias])]
                 else:
                     value = 111
+                if column[colalias] == 'siteName':
+                    if result[sqlrow][colnames.index('speed')] != 'Normal':
+                        if (result[sqlrow][colnames.index('speed')] == 'Hyper' 
+                            and result[sqlrow][colnames.index('siteName')] ==
+                            'Full Tilt Poker'):
+                            value = value + ' ' + 'Super Turbo'
+                        else:
+                            value = value + ' ' + result[sqlrow][colnames.index('speed')]
                 if value != None and value != -999:
                     treerow.append(column[colformat] % value)
                 else:
@@ -196,7 +202,7 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
         vbox.show_all()
     #end def addGrid
 
-    def createStatsTable(self, vbox, tourneyTypes, playerids, sitenos, seats, dates):
+    def createStatsTable(self, vbox, tourneyTypes, playerids, sitenos, seats):
         startTime = time()
         show_detail = True
 
@@ -207,34 +213,8 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
         vbox.pack1(swin)
 
         numTourneys = self.filters.getNumTourneys()
-        self.addGrid(swin, 'tourneyPlayerDetailedStats', numTourneys, tourneyTypes, playerids
-                    ,sitenos, seats, dates)
+        self.addGrid(swin, 'tourneyPlayerDetailedStats', numTourneys, tourneyTypes, playerids, sitenos, seats)
 
-        #if 'allplayers' in groups and groups['allplayers']:
-            # can't currently do this combination so skip detailed table
-        show_detail = False
-
-        if show_detail: 
-            # Separator
-            vbox2 = gtk.VBox(False, 0)
-            heading = gtk.Label(self.filterText['handhead'])
-            heading.show()
-            vbox2.pack_start(heading, expand=False, padding=3)
-
-            # Scrolled window for detailed table (display by hand)
-            swin = gtk.ScrolledWindow(hadjustment=None, vadjustment=None)
-            swin.set_policy(gtk.POLICY_AUTOMATIC, gtk.POLICY_AUTOMATIC)
-            swin.show()
-            vbox2.pack_start(swin, expand=True, padding=3)
-            vbox.pack2(vbox2)
-            vbox2.show()
-
-            # Detailed table
-            flags[0] = True
-            flags[2] = 1
-            self.addGrid(swin, 'playerDetailedStats', flags, playerids, sitenos, seats, dates)
-
-        self.db.rollback()
         print _("Stats page displayed in %4.2f seconds") % (time() - startTime)
     #end def createStatsTable
 
@@ -266,7 +246,7 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
             print _("No player ids found")
             return
         
-        self.createStatsTable(vbox, tourneyTypes, playerids, sitenos, seats, dates)
+        self.createStatsTable(vbox, tourneyTypes, playerids, sitenos, seats)
     #end def fillStatsFrame
 
     def get_vbox(self):
@@ -274,7 +254,7 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
         return self.main_hbox
     #end def get_vbox
     
-    def refineQuery(self, query, numTourneys, tourneyTypes, playerids, sitenos, seats, dates):
+    def refineQuery(self, query, numTourneys, tourneyTypes, playerids, sitenos, seats):
         having = ''
         
         #print "start of refinequery, playerids:",playerids
@@ -293,24 +273,6 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
         query = query.replace("<playerName>", pname)
         query = query.replace("<havingclause>", having)
 
-        #TODO: remove, or replace with tourneytest
-        #gametest = ""
-        #q = []
-        #for m in self.filters.display.items():
-        #    if m[0] == 'Games' and m[1]:
-        #        for n in games:
-        #            if games[n]:
-        #                q.append(n)
-        #        if len(q) > 0:
-        #            gametest = str(tuple(q))
-        #            gametest = gametest.replace("L", "")
-        #            gametest = gametest.replace(",)",")")
-        #            gametest = gametest.replace("u'","'")
-        #            gametest = "and gt.category in %s" % gametest
-        #        else:
-        #            gametest = "and gt.category IS NULL"
-        #query = query.replace("<game_test>", gametest)
-        
         sitetest = ""
         q = []
         for m in self.filters.display.items():
@@ -364,20 +326,10 @@ class GuiTourneyPlayerStats (GuiPlayerStats.GuiPlayerStats):
             query = query.replace("<signed>", '')
 
         # Filter on dates
-        query = query.replace("<datestest>", " between '" + dates[0] + "' and '" + dates[1] + "'")
+        start_date, end_date = self.filters.getDates()
+        query = query.replace("<startdate_test>", start_date)
+        query = query.replace("<enddate_test>", end_date)
 
-        # Group by position?
-        #if groups['posn']:
-        #    #query = query.replace("<position>", "case hp.position when '0' then 'Btn' else hp.position end")
-        #    query = query.replace("<position>", "hp.position")
-        #    # set flag in self.columns to show posn column
-        #    [x for x in self.columns if x[0] == 'plposition'][0][1] = True
-        #else:
-        #    query = query.replace("<position>", "gt.base")
-        #    # unset flag in self.columns to hide posn column
-        #    [x for x in self.columns if x[0] == 'plposition'][0][1] = False
-
-        #print "query at end of refine query:", query
         return(query)
     #end def refineQuery
 

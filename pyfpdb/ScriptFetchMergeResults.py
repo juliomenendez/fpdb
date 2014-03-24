@@ -32,22 +32,20 @@ def fetch_results_page(tourney_id):
         data = urllib2.urlopen(url).read()
         return data
     except urllib2.HTTPError, e:
-        print e
+        print e, tourney_id
         return None
 
 def write_file(filename, data):
     f = open(filename, 'w')
-    print f
     f.write(data)
     f.close()
-    print f
 
 def main():
     Configuration.set_logfile("fpdb-log.txt")
     config = Configuration.Config()
     db = Database.Database(config)
 
-    tourney_ids = db.getSiteTourneyNos("Carbon")
+    tourney_ids = db.getSiteTourneyNos("Merge")
     tids = []
 
     for tid in tourney_ids:
@@ -56,7 +54,7 @@ def main():
     #    winamax_get_winning(tid,"blah")
     results_dir = config.get_import_parameters().get("ResultsDirectory")
     results_dir = os.path.expanduser(results_dir)
-    site_dir = os.path.join(results_dir, "Carbon")
+    site_dir = os.path.join(results_dir, "Merge")
     print "DEBUG: site_dir: %s" % site_dir
     filelist = [file for file in os.listdir(site_dir) if not file in [".",".."]]
     print "DEBUG: filelist : %s" % filelist
