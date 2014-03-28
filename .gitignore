@@ -2,3 +2,4 @@
 build/
 pyfpdb/card_path.py
 fpdb.egg-info/
+.idea
