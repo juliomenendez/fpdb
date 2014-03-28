@@ -611,6 +611,7 @@ class Hand(object):
         Bp = self.lastBet[street]
         Bc = sum(self.bets[street][player])
         C = Bp - Bc
+
         if Ai <= C:
             self.addCall(street, player, amount)
         elif Bp == 0:
@@ -767,7 +768,8 @@ class Hand(object):
         Bc = sum(self.bets[street][player])
         Rt = Decimal(amountTo)
         C = Bp - Bc
-        Rb = Rt - C - Bc
+        Rb = Rt - C
+
         self._addRaise(street, player, C, Rb, Rt)
 
     def _addRaise(self, street, player, C, Rb, Rt, action = 'raises'):
@@ -777,6 +779,7 @@ class Hand(object):
         act = (player, action, Rb, Rt, C, self.stacks[player]==0)
         self.actions[street].append(act)
         self.lastBet[street] = Rt # TODO check this is correct
+
         self.pot.addMoney(player, C+Rb)
 
 
@@ -1682,6 +1685,7 @@ class StudHand(Hand):
         Bp = self.lastBet[street]
         Bc = sum(self.bets[street][player])
         Rt = Decimal(amountTo)
+
         C = Bp - Bc
         Rb = Rt - C
         self._addRaise(street, player, C, Rb, Rt, 'completes')
@@ -2041,5 +2045,3 @@ def hand_factory(hand_id, config, db_connection):
     hand_instance.handid_selected = hand_id #hand_instance does not supply this, create it here
 
     return hand_instance
-
-
