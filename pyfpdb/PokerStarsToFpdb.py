@@ -2,17 +2,17 @@
 # -*- coding: utf-8 -*-
 #
 #    Copyright 2008-2011, Carl Gherardi
-#    
+#
 #    This program is free software; you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation; either version 2 of the License, or
 #    (at your option) any later version.
-#    
+#
 #    This program is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
 #    GNU General Public License for more details.
-#    
+#
 #    You should have received a copy of the GNU General Public License
 #    along with this program; if not, write to the Free Software
 #    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
@@ -45,7 +45,7 @@ class PokerStars(HandHistoryConverter):
                             'CUR': u"(\$|\xe2\x82\xac|\u20ac||\£|)",
                           'BRKTS': r'(\(button\) |\(small blind\) |\(big blind\) |\(button\) \(small blind\) |\(button\) \(big blind\) )?',
                     }
-                    
+
     # translations from captured groups to fpdb info strings
     Lim_Blinds = {      '0.04': ('0.01', '0.02'),         '0.08': ('0.02', '0.04'),
                         '0.10': ('0.02', '0.05'),         '0.20': ('0.05', '0.10'),
@@ -75,7 +75,7 @@ class PokerStars(HandHistoryConverter):
     limits = { 'No Limit':'nl', 'NO LIMIT':'nl', 'Pot Limit':'pl', 'POT LIMIT':'pl', 'Limit':'fl', 'LIMIT':'fl' , 'Pot Limit Pre-Flop, No Limit Post-Flop': 'pn'}
     games = {                          # base, category
                               "Hold'em" : ('hold','holdem'),
-                              "HOLD'EM" : ('hold','holdem'), 
+                              "HOLD'EM" : ('hold','holdem'),
                                 'Omaha' : ('hold','omahahi'),
                                 'OMAHA' : ('hold','omahahi'),
                           'Omaha Hi/Lo' : ('hold','omahahilo'),
@@ -84,7 +84,7 @@ class PokerStars(HandHistoryConverter):
                    '5 Card Omaha Hi/Lo' : ('hold', '5_omaha8'),
                            'Courchevel' : ('hold', 'cour_hi'),
                      'Courchevel Hi/Lo' : ('hold', 'cour_hilo'),
-                                 'Razz' : ('stud','razz'), 
+                                 'Razz' : ('stud','razz'),
                                  'RAZZ' : ('stud','razz'),
                           '7 Card Stud' : ('stud','studhi'),
                           '7 CARD STUD' : ('stud','studhi'),
@@ -138,14 +138,14 @@ class PokerStars(HandHistoryConverter):
           ^\s?Seat\s(?P<SEAT>[0-9]+):\s
           (?P<PNAME>.*)\s
           \((%(LS)s)?(?P<CASH>[.0-9]+)\sin\schips\)
-          (?P<SITOUT>\sis\ssitting\sout)?""" % substitutions, 
+          (?P<SITOUT>\sis\ssitting\sout)?""" % substitutions,
           re.MULTILINE|re.VERBOSE)
 
     re_HandInfo     = re.compile("""
           ^\s?Table\s\'(?P<TABLE>.+?)\'\s
           ((?P<MAX>\d+)-max\s)?
           (?P<PLAY>\(Play\sMoney\)\s)?
-          (Seat\s\#(?P<BUTTON>\d+)\sis\sthe\sbutton)?""", 
+          (Seat\s\#(?P<BUTTON>\d+)\sis\sthe\sbutton)?""",
           re.MULTILINE|re.VERBOSE)
 
     re_Identify     = re.compile(u'(PokerStars|POKERSTARS)(\sGame|\sHand|\sHome\sGame|\sHome\sGame\sHand|Game|\sZoom\sHand|\sGAME)\s\#\d+:')
@@ -204,7 +204,7 @@ class PokerStars(HandHistoryConverter):
                 ["tour", "hold", "pn"],
 
                 ["tour", "stud", "fl"],
-                
+
                 ["tour", "draw", "fl"],
                 ["tour", "draw", "pl"],
                 ["tour", "draw", "nl"],
@@ -243,12 +243,12 @@ class PokerStars(HandHistoryConverter):
             info['buyinType'] = 'cap'
         else:
             info['buyinType'] = 'regular'
-                
+
         if 'TOURNO' in mg and mg['TOURNO'] is None:
             info['type'] = 'ring'
         else:
             info['type'] = 'tour'
-            
+
         if not mg['CURRENCY'] and info['type']=='ring':
             info['currency'] = 'play'
 
@@ -263,7 +263,7 @@ class PokerStars(HandHistoryConverter):
                     raise FpdbParseError
             else:
                 info['sb'] = str((Decimal(mg['SB'])/2).quantize(Decimal("0.01")))
-                info['bb'] = str(Decimal(mg['SB']).quantize(Decimal("0.01")))    
+                info['bb'] = str(Decimal(mg['SB']).quantize(Decimal("0.01")))
 
         return info
 
@@ -324,7 +324,7 @@ class PokerStars(HandHistoryConverter):
                             raise FpdbParseError
 
                         info['BIAMT'] = info['BIAMT'].strip(u'$€£FPP')
-                        
+
                         if hand.buyinCurrency!="PSFP":
                             if info['BOUNTY'] != None:
                                 # There is a bounty, Which means we need to switch BOUNTY and BIRAKE values
@@ -353,7 +353,7 @@ class PokerStars(HandHistoryConverter):
                     else:
                         hand.isHomeGame = False
             if key == 'LEVEL':
-                hand.level = info[key]       
+                hand.level = info[key]
             if key == 'SHOOTOUT' and info[key] != None:
                 hand.isShootout = True
             if key == 'TABLE':
@@ -366,13 +366,13 @@ class PokerStars(HandHistoryConverter):
                 hand.buttonpos = info[key]
             if key == 'MAX' and info[key] != None:
                 hand.maxseats = int(info[key])
-                
+
         if 'Zoom' in self.in_path:
             (hand.gametype['fast'], hand.isFast) = (True, True)
-                
+
         if self.re_Cancelled.search(hand.handText):
             raise FpdbHandPartial(_("Hand '%s' was cancelled.") % hand.handid)
-    
+
     def readButton(self, hand):
         m = self.re_Button.search(hand.handText)
         if m:
@@ -389,7 +389,7 @@ class PokerStars(HandHistoryConverter):
     def markStreets(self, hand):
 
         # There is no marker between deal and draw in Stars single draw games
-        #  this upsets the accounting, incorrectly sets handsPlayers.cardxx and 
+        #  this upsets the accounting, incorrectly sets handsPlayers.cardxx and
         #  in consequence the mucked-display is incorrect.
         # Attempt to fix by inserting a DRAW marker into the hand text attribute
 
@@ -455,13 +455,13 @@ class PokerStars(HandHistoryConverter):
         for player in m:
             #~ logging.debug("hand.addAnte(%s,%s)" %(player.group('PNAME'), player.group('ANTE')))
             hand.addAnte(player.group('PNAME'), player.group('ANTE'))
-    
+
     def readBringIn(self, hand):
         m = self.re_BringIn.search(hand.handText,re.DOTALL)
         if m:
             #~ logging.debug("readBringIn: %s for %s" %(m.group('PNAME'),  m.group('BRINGIN')))
             hand.addBringIn(m.group('PNAME'),  m.group('BRINGIN'))
-        
+
     def readBlinds(self, hand):
         liveBlind = True
         for a in self.re_PostSB.finditer(hand.handText):
@@ -524,10 +524,7 @@ class PokerStars(HandHistoryConverter):
             elif action.group('ATYPE') == ' calls':
                 hand.addCall( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' raises':
-                if action.group('BETTO') != '':
-                    hand.addRaiseTo( street, action.group('PNAME'), action.group('BETTO'))
-                else:
-                    hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
+                hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' bets':
                 hand.addBet( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' discards':
@@ -540,7 +537,7 @@ class PokerStars(HandHistoryConverter):
 
     def readShowdownActions(self, hand):
 # TODO: pick up mucks also??
-        for shows in self.re_ShowdownAction.finditer(hand.handText):            
+        for shows in self.re_ShowdownAction.finditer(hand.handText):
             cards = shows.group('CARDS').split(' ')
             hand.addShownCards(cards, shows.group('PNAME'))
 

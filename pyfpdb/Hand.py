@@ -768,7 +768,7 @@ class Hand(object):
         Bc = sum(self.bets[street][player])
         Rt = Decimal(amountTo)
         C = Bp - Bc
-        Rb = Rt - C
+        Rb = Rt - C - Bc
 
         self._addRaise(street, player, C, Rb, Rt)
 
