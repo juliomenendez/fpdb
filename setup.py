@@ -38,7 +38,7 @@ f.write(CONTENT)
 f.close()
 
 # Check if we are running on a virtualenv and set the data_files path accordinly
-if hasattr(sys, 'real_prefix'):
+if hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
     data_files_prefix = 'share/'
 else:
     data_files_prefix = '/usr/share/'
