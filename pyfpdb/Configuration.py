@@ -82,7 +82,7 @@ else:
 if INSTALL_METHOD == "exe":
     temp = os.path.dirname(unicode(sys.executable, sys.getfilesystemencoding())) # should be exe path to \fpdbroot\pyfpdb
     FPDB_ROOT_PATH = os.path.join(temp, os.pardir)   # go up one level (to fpdbroot)
-elif hasattr(sys, 'real_prefix'):
+elif hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
     FPDB_ROOT_PATH = os.path.abspath(os.path.join(*((module_path,) + ('..',) * 4)))
 elif sys.path[0] == "": # we are probably running directly (>>>import Configuration)
     temp = os.getcwdu() # should be ./pyfpdb
@@ -107,7 +107,7 @@ GRAPHICS_PATH = os.path.join(FPDB_ROOT_PATH, u"gfx")
 PYFPDB_PATH = os.path.join(FPDB_ROOT_PATH, u"pyfpdb")
 
 CONFIG_PATH = '.'
-if hasattr(sys, 'real_prefix'):
+if hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
     CONFIG_PATH = FPDB_ROOT_PATH
     APPDATA_PATH = FPDB_ROOT_PATH
 elif OS_FAMILY in ['XP', 'Win7']:
@@ -151,7 +151,7 @@ def get_config(file_name, fallback = True):
     config_path, example_path = None,None
 
     sub_folder = 'pyfpdb'
-    if hasattr(sys, 'real_prefix'):
+    if hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
         sub_folder = 'share/python-fpdb'
     config_path = os.path.join(FPDB_ROOT_PATH, sub_folder, file_name)
 
@@ -174,7 +174,7 @@ def get_config(file_name, fallback = True):
         if not os.path.exists(example_path):
             if os.path.exists(file_name + '.example'):
                 example_path = file_name + '.example'
-            elif hasattr(sys, 'real_prefix'):
+            elif hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
                 example_path = os.path.join(
                     FPDB_ROOT_PATH, 'share', 'python-fpdb', file_name + '.example')
             else:
