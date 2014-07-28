@@ -106,10 +106,12 @@ else:
 GRAPHICS_PATH = os.path.join(FPDB_ROOT_PATH, u"gfx")
 PYFPDB_PATH = os.path.join(FPDB_ROOT_PATH, u"pyfpdb")
 
+LOG_PATH = ''
 CONFIG_PATH = '.'
 if hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
     CONFIG_PATH = FPDB_ROOT_PATH
     APPDATA_PATH = FPDB_ROOT_PATH
+    LOG_PATH = '/tmp/'
 elif OS_FAMILY in ['XP', 'Win7']:
     APPDATA_PATH = winpaths_appdata
     CONFIG_PATH = os.path.join(APPDATA_PATH, u"fpdb")
@@ -221,9 +223,12 @@ def get_config(file_name, fallback = True):
 def set_logfile(file_name):
     (conf_file,copied,example_file) = get_config(u"logging.conf", fallback = False)
 
-    log_dir = os.path.join(CONFIG_PATH, u'log')
-    check_dir(log_dir)
-    log_file = os.path.join(log_dir, file_name)
+    if LOG_PATH:
+        log_file = os.path.join(LOG_PATH, file_name)
+    else:
+        log_dir = os.path.join(CONFIG_PATH, u'log')
+        check_dir(log_dir)
+        log_file = os.path.join(log_dir, file_name)
 
     if conf_file:
         try:
