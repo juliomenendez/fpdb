@@ -106,12 +106,12 @@ else:
 GRAPHICS_PATH = os.path.join(FPDB_ROOT_PATH, u"gfx")
 PYFPDB_PATH = os.path.join(FPDB_ROOT_PATH, u"pyfpdb")
 
-LOG_PATH = ''
+LOG_TO_FILE = True
 CONFIG_PATH = '.'
 if hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
     CONFIG_PATH = FPDB_ROOT_PATH
     APPDATA_PATH = FPDB_ROOT_PATH
-    LOG_PATH = '/tmp/'
+    LOG_TO_FILE = False
 elif OS_FAMILY in ['XP', 'Win7']:
     APPDATA_PATH = winpaths_appdata
     CONFIG_PATH = os.path.join(APPDATA_PATH, u"fpdb")
@@ -223,19 +223,17 @@ def get_config(file_name, fallback = True):
 def set_logfile(file_name):
     (conf_file,copied,example_file) = get_config(u"logging.conf", fallback = False)
 
-    if LOG_PATH:
-        log_file = os.path.join(LOG_PATH, file_name)
-    else:
+    if LOG_TO_FILE:
         log_dir = os.path.join(CONFIG_PATH, u'log')
         check_dir(log_dir)
         log_file = os.path.join(log_dir, file_name)
 
-    if conf_file:
-        try:
-            log_file = log_file.replace('\\', '\\\\')  # replace each \ with \\
-            logging.config.fileConfig(conf_file, {"logFile":log_file})
-        except Exception as e:
-            sys.stderr.write(_("Could not setup log file %s") % e)
+        if conf_file:
+            try:
+                log_file = log_file.replace('\\', '\\\\')  # replace each \ with \\
+                logging.config.fileConfig(conf_file, {"logFile":log_file})
+            except Exception as e:
+                sys.stderr.write(_("Could not setup log file %s") % e)
 
 def check_dir(path, create = True):
     """Check if a dir exists, optionally creates if not."""
