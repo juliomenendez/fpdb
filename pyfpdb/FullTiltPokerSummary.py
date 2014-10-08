@@ -55,15 +55,18 @@ class FullTiltPokerSummary(TourneySummary):
                       '2-7 Single Draw' : ('draw','27_1draw'),
               'Triple Draw 2-7 Lowball' : ('draw','27_3draw'),
                       '2-7 Triple Draw' : ('draw','27_3draw'),
+                      'A-5 Triple Draw' : ('draw','a5_3draw'),
                           '5 Card Draw' : ('draw','fivedraw'),
                                '7-Game' : ('mixed','7game'),
                                '8-Game' : ('mixed','8game'),
                                '9-Game' : ('mixed','9game'),
                               '10-Game' : ('mixed','10game'),
+                              '25-Game' : ('mixed','25game'),
                          '7-Game Mixed' : ('mixed','7game'),
                          '8-Game Mixed' : ('mixed','8game'),
                          '9-Game Mixed' : ('mixed','9game'),
                         '10-Game Mixed' : ('mixed','10game'),
+                        '25-Game Mixed' : ('mixed','25game'),
                                    'HA' : ('mixed','ha'),
                                 'HEROS' : ('mixed','heros'),
                                    'HO' : ('mixed','ho'),
@@ -79,7 +82,7 @@ class FullTiltPokerSummary(TourneySummary):
                      'LEGAL_ISO' : "USD|EUR|GBP|CAD|FPP|FTP",      # legal ISO currency codes
                             'LS' : u"\$|\xe2\x82\xac|\u20ac|", # legal currency symbols - Euro(cp1252, utf-8)
                            'TAB' : u"-\u2013'\s\da-zA-Z#_\.",      # legal characters for tablename
-                           'NUM' : u".,\dKM",                    # legal characters in number format
+                           'NUM' : u".,\dKMB",                    # legal characters in number format
                     }
     
     months = { 'January':1, 'Jan':1, 'February':2, 'Feb':2, 'March':3, 'Mar':3,
@@ -93,7 +96,7 @@ class FullTiltPokerSummary(TourneySummary):
                         \s(?P<TOURNAMENT>.+?)\s(\((?P<TOURPAREN>.+)\)\s+)?
                         \((?P<TOURNO>[0-9]+)\)
                         (\s+)?(\sMatch\s(?P<MATCHNO>\d)\s)?
-                        (?P<GAME>Hold\'em|Irish|Courchevel\sHi|Razz|RAZZ|5(-|\s)Card\sStud(\sHi)?|7\sCard\sStud|7\sCard\sStud\sHi/Lo|Stud\sH/L|Stud\sHi|Omaha|((5|6)\sCard\s)?Omaha\sHi|Omaha\sHi/Lo|Omaha\sH/L|2\-7\sSingle\sDraw|Badugi|Triple\sDraw\s2\-7\sLowball|2\-7\sTriple\sDraw|5\sCard\sDraw|\d+\-Game\sMixed|HORSE|HA|HEROS|HO|HOE|HORSE|HOSE|OA|OE|SE)\s+
+                        (?P<GAME>Hold\'em|Irish|Courchevel\sHi|Razz|RAZZ|5(-|\s)Card\sStud(\sHi)?|7\sCard\sStud|7\sCard\sStud\sHi/Lo|Stud\sH/L|Stud\sHi|Omaha|((5|6)\sCard\s)?Omaha\sHi|Omaha\sHi/Lo|Omaha\sH/L|2\-7\sSingle\sDraw|Badugi|Triple\sDraw\s2\-7\sLowball|2\-7\sTriple\sDraw|5\sCard\sDraw|A-5\sTriple\sDraw|\d+\-Game(\sMixed)?|HORSE|HA|HEROS|HO|HOE|HORSE|HOSE|OA|OE|SE)\s+
                         ((?P<LIMIT>No\sLimit|Limit|LIMIT|Pot\sLimit)\s+)?(\((?P<TABLEATTRIBUTES>.+)\)\s+)?
                         (Buy-In:\s[%(LS)s]?(?P<BUYIN>[%(NUM)s]+)(\sFTP|\sT\$|\sPlay\sChips)?(\s\+\s[%(LS)s]?(?P<FEE>[%(NUM)s]+)(\sFTP|\sT\$|\sPlay\sChips)?)?\s+)?
                         (Knockout\sBounty:\s[%(LS)s](?P<KOBOUNTY>[%(NUM)s]+)\s+)?
@@ -107,11 +110,11 @@ class FullTiltPokerSummary(TourneySummary):
                         (Rebuy\sChips:\s(?P<REBUYCHIPS>\d+)\s+)?
                         (?P<ENTRIES>[0-9]+)\sEntries\s+
                         (Total\sAdd-Ons:\s(?P<ADDONS>\d+)\s+)?
-                        (Total\sRebuys:\s(?P<REBUYS>\d+)\s+)?
+                        (Total\sRebuys:\s(?P<REBUYS>\d+)\s*)?
                         (Total\sPrize\sPool:\s[%(LS)s]?(?P<PRIZEPOOL>[%(NUM)s]+)(\sFTP|\sT\$|\sPlay\sChips)?\s+)?
                         (?P<SATELLITE>Top\s(\d+\s)?finishers?\sreceives?\s.+\s+)?
                         (Target\sTournament\s.+\s+)?
-                        Tournament\sstarted:\s(?P<DATETIME>((?P<Y>[\d]{4})\/(?P<M>[\d]{2})\/(?P<D>[\d]+)\s+(?P<H>[\d]+):(?P<MIN>[\d]+):(?P<S>[\d]+)\s??(?P<TZ>[A-Z]+)\s|\w+,\s(?P<MONTH>\w+)\s(?P<DAY>\d+),\s(?P<YEAR>[\d]{4})\s(?P<HOUR>\d+):(?P<MIN2>\d+)))
+                        Tournament\sstarted:\s(?P<DATETIME>((?P<Y>[\d]{4})\/(?P<M>[\d]{2})\/(?P<D>[\d]+)\s+(?P<H>[\d]+):(?P<MIN>[\d]+):(?P<S>[\d]+)\s?(?P<TZ>[A-Z]+)\s|\w+,\s(?P<MONTH>\w+)\s(?P<DAY>\d+),\s(?P<YEAR>[\d]{4})\s(?P<HOUR>\d+):(?P<MIN2>\d+)))
                                """ % substitutions ,re.VERBOSE|re.MULTILINE|re.DOTALL)
     
     re_TourneyExtraInfo = re.compile('''(((?P<SPEED1>(Turbo|Super\sTurbo|Escalator))\s?)?
@@ -193,11 +196,13 @@ class FullTiltPokerSummary(TourneySummary):
         if 'game type desc' in info:
             m3 = self.re_GameXLS.search(info['game type desc'])
             if m3:
-                self.gametype['category']  = self.games[m3.group('GAME')][1]
+                base, self.gametype['category']  = self.games[m3.group('GAME')]
                 if m3.group('LIMIT') != None:
                     self.gametype['limitType'] = self.limits[m3.group('LIMIT')]
-                else:
+                elif base=='mixed':
                     self.gametype['limitType'] = 'mx'
+                else:
+                    self.gametype['limitType'] = 'nl'
             else:
                 log.error(_("FullTiltPokerSummary.parseSummaryXLS Game '%s' not found") % info['game type desc'])
                 raise FpdbParseError
@@ -275,16 +280,20 @@ class FullTiltPokerSummary(TourneySummary):
             raise FpdbParseError
 
         #print "DEBUG: m.groupdict(): %s" % m.groupdict()
+        base = None
         rebuyCounts = {}
         addOnCounts = {}
         koCounts = {}
         mg = m.groupdict()
         if 'TOURNO'    in mg: self.tourNo = mg['TOURNO']
+        if 'GAME'      in mg: 
+            base, self.gametype['category'] = self.games[mg['GAME']]
         if 'LIMIT'     in mg and mg['LIMIT'] != None:
             self.gametype['limitType'] = self.limits[mg['LIMIT']]
-        else:
+        elif base=='mixed':
             self.gametype['limitType'] = 'mx'
-        if 'GAME'      in mg: self.gametype['category']  = self.games[mg['GAME']][1]
+        else:
+            self.gametype['limitType'] = 'nl'
         if mg['BUYIN'] != None:
             self.buyin = int(100*Decimal(self.clearMoneyString(mg['BUYIN'])))
         if mg['FEE'] != None:

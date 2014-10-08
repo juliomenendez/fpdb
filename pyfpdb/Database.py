@@ -903,6 +903,7 @@ class Database:
 
     def close_connection(self):
         self.connection.close()
+        self.__connected = False
 
     def disconnect(self, due_to_error=False):
         """Disconnects the DB (rolls back if param is true, otherwise commits"""
@@ -1870,7 +1871,7 @@ class Database:
         for i in range(170):
             (name, rank, combinations) = Card.StartCardRank(i)
             c.execute(sql,  ('holdem', name, rank, combinations))
-        for idx in range(-13,1183):
+        for idx in range(-13,1184):
             name = Card.decodeRazzStartHand(idx)
             c.execute(sql, ('razz', name, idx, 0))        
 
@@ -2603,7 +2604,7 @@ class Database:
                 c.executemany(insert_hudcache, inserts)
             self.commit()
             
-    def storeSessionsCache(self, hid, pids, startTime, heroes, tz_name, doinsert = False):
+    def storeSessionsCache(self, hid, pids, startTime, tid, heroes, tz_name, doinsert = False):
         """Update cached sessions. If no record exists, do an insert"""
         THRESHOLD     = timedelta(seconds=int(self.sessionTimeout * 60))
         if tz_name in pytz.common_timezones:
@@ -2644,14 +2645,16 @@ class Database:
                     hand['weekStart']  = weekStart
                     hand['monthStart'] = monthStart
                 hand['ids'] = [hid]
+                hand['tourneys'] = set()
         
         id = []
         if hand:
             lower = hand['startTime']-THRESHOLD
             upper = hand['startTime']+THRESHOLD
             for i in range(len(self.sc['bk'])):
-                if ((lower  <= self.sc['bk'][i]['sessionEnd'])
-                and (upper  >= self.sc['bk'][i]['sessionStart'])):
+                if (((lower  <= self.sc['bk'][i]['sessionEnd'])
+                and  (upper  >= self.sc['bk'][i]['sessionStart']))
+                or   (tid in self.sc['bk'][i]['tourneys'])):
                     if ((hand['startTime'] <= self.sc['bk'][i]['sessionEnd']) 
                     and (hand['startTime'] >= self.sc['bk'][i]['sessionStart'])):
                          id.append(i)
@@ -2666,6 +2669,7 @@ class Database:
             if len(id) == 1:
                 j = id[0]
                 self.sc['bk'][j]['ids'] += [hid]
+                if tid: self.sc['bk'][j]['tourneys'].add(tid)
             elif len(id) == 2:
                 j, k = id
                 if  self.sc['bk'][j]['sessionStart'] < self.sc['bk'][k]['sessionStart']:
@@ -2677,11 +2681,14 @@ class Database:
                 sh = self.sc['bk'].pop(k)
                 self.sc['bk'][j]['ids'] += [hid]
                 self.sc['bk'][j]['ids'] += sh['ids']
+                if tid: self.sc['bk'][j]['tourneys'].add(tid)
+                self.sc['bk'][j]['tourneys'].union(sh['tourneys'])
             elif len(id) == 0:
                 j = len(self.sc['bk'])
                 hand['id'] = None
                 hand['sessionStart'] = hand['startTime']
                 hand['sessionEnd']   = hand['startTime']
+                if tid: hand['tourneys'].add(tid)
                 self.sc['bk'].append(hand)
         
         if doinsert:
@@ -2701,6 +2708,12 @@ class Database:
             for i in range(len(self.sc['bk'])):
                 lower = self.sc['bk'][i]['sessionStart'] - THRESHOLD
                 upper = self.sc['bk'][i]['sessionEnd']   + THRESHOLD
+                tourneys = self.sc['bk'][i]['tourneys']
+                if (self.sc['bk'][i]['tourneys']):
+                    toursql = 'OR SC.id in (SELECT DISTINCT sessionId FROM Tourneys T WHERE T.id in (%s))' % ', '.join(str(t) for t in tourneys)
+                    select_SC = select_SC.replace('<TOURSELECT>', toursql)
+                else:
+                    select_SC = select_SC.replace('<TOURSELECT>', '')
                 c.execute(select_SC, (lower, upper))
                 r = self.fetchallDict(c)
                 num = len(r)
@@ -2848,11 +2861,7 @@ class Database:
             for k, cashplayer in self.cc.iteritems():
                 for session in cashplayer:
                     hid = session['hid']
-                    sc = self.sc.get(hid)
-                    if sc is not None:
-                        sid = sc['id']
-                    else:
-                        sid = None
+                    sid = self.sc.get(hid)['id']
                     lower = session['startTime'] - THRESHOLD
                     upper = session['endTime']   + THRESHOLD
                     row = [lower, upper] + list(k[:2])
@@ -2890,8 +2899,6 @@ class Database:
                                 if  end < n['endTime']: 
                                     end = n['endTime']
                             else:   end = n['endTime']
-                            if not sid and n['sessionId']:
-                                sid = n['id']
                             for idx in range(len(CACHE_KEYS)):
                                 line[idx] += int(n['line'][idx])
                         row = [sid, start, end] + list(k[:2]) + line 
@@ -2926,36 +2933,28 @@ class Database:
                         tourplayer['ids'].append(hid)
                 else:
                     self.tc[k] = {'startTime' : None,
-                                          'endTime' : None,
-                                              'hid' : hid,
-                                              'ids' : []}
+                                    'endTime' : None,
+                                        'hid' : hid,
+                                        'ids' : []}
                     self.tc[k]['line'] = line
                     if pids[p]==heroes[0]:
                         self.tc[k]['ids'].append(hid)
 
                 if not self.tc[k]['startTime'] or startTime < self.tc[k]['startTime']:
                     self.tc[k]['startTime']  = startTime
+                    self.tc[k]['hid'] = hid
                 if not self.tc[k]['endTime'] or startTime > self.tc[k]['endTime']:
                     self.tc[k]['endTime']    = startTime
                 
         if doinsert:
-            update_TC = self.sql.query['update_TC']
-            update_TC = update_TC.replace('%s', self.sql.query['placeholder'])
-            insert_TC = self.sql.query['insert_TC']
-            insert_TC = insert_TC.replace('%s', self.sql.query['placeholder'])
-            select_TC = self.sql.query['select_TC']
-            select_TC = select_TC.replace('%s', self.sql.query['placeholder'])
+            update_TC = self.sql.query['update_TC'].replace('%s', self.sql.query['placeholder'])
+            insert_TC = self.sql.query['insert_TC'].replace('%s', self.sql.query['placeholder'])
+            select_TC = self.sql.query['select_TC'].replace('%s', self.sql.query['placeholder'])
             
             inserts = []
             c = self.get_cursor()
             for k, tc in self.tc.iteritems():
-                hid = tc['hid']
-                sc = self.sc.get(hid)
-                if sc is not None:
-                    sid = sc['id']
-                    tc['sid'] = sid
-                else:
-                    sid = None
+                sc = self.sc.get(tc['hid'])
                 if self.backend == self.SQLITE:
                     tc['startTime'] = datetime.strptime(tc['startTime'], '%Y-%m-%d %H:%M:%S')
                     tc['endTime']   = datetime.strptime(tc['endTime'], '%Y-%m-%d %H:%M:%S')
@@ -2963,31 +2962,25 @@ class Database:
                     tc['startTime'] = tc['startTime'].replace(tzinfo=None)
                     tc['endTime']   = tc['endTime'].replace(tzinfo=None)
                 c.execute(select_TC, k)
-                result = c.fetchone()
-                id, start, end = None, None, None
-                if result:
-                    id, start, end = result
-                self.tc[k]['id'] = id
-                update = not start or not end
-                if (update or (tc['startTime']<start and tc['endTime']>end)):
-                    q = update_TC.replace('<UPDATE>', 'startTime=%s, endTime=%s,')
-                    row = [tc['startTime'], tc['endTime']] + tc['line'] + list(k[:2])
-                elif tc['startTime']<start:
-                    q = update_TC.replace('<UPDATE>', 'startTime=%s, ')
-                    row = [tc['startTime']] + tc['line'] + list(k[:2])
-                elif tc['endTime']>end:
-                    q = update_TC.replace('<UPDATE>', 'endTime=%s, ')
-                    row = [tc['endTime']] + tc['line'] + list(k[:2])
-                else:
-                    q = update_TC.replace('<UPDATE>', '')
-                    row = tc['line'] + list(k[:2])
-                
-                num = c.execute(q, row)
-                # Try to do the update first. Do insert it did not work
-                if ((self.backend == self.PGSQL and c.statusmessage != "UPDATE 1")
-                        or (self.backend == self.MYSQL_INNODB and num == 0)
-                        or (self.backend == self.SQLITE and num.rowcount == 0)):
-                    row = [sid, tc['startTime'], tc['endTime']] + list(k[:2]) + tc['line']
+                r = self.fetchallDict(c)
+                num = len(r)
+                if (num == 1):
+                    update = not r[0]['startTime'] or not r[0]['endTime']
+                    if (update or (tc['startTime']<r[0]['startTime'] and tc['endTime']>r[0]['endTime'])):
+                        q = update_TC.replace('<UPDATE>', 'startTime=%s, endTime=%s,')
+                        row = [tc['startTime'], tc['endTime']] + tc['line'] + list(k[:2])
+                    elif tc['startTime']<r[0]['startTime']:
+                        q = update_TC.replace('<UPDATE>', 'startTime=%s, ')
+                        row = [tc['startTime']] + tc['line'] + list(k[:2])
+                    elif tc['endTime']>r[0]['endTime']:
+                        q = update_TC.replace('<UPDATE>', 'endTime=%s, ')
+                        row = [tc['endTime']] + tc['line'] + list(k[:2])
+                    else:
+                        q = update_TC.replace('<UPDATE>', '')
+                        row = tc['line'] + list(k[:2])
+                    c.execute(q, row)
+                elif (num == 0):
+                    row = [sc['id'], tc['startTime'], tc['endTime']] + list(k[:2]) + tc['line']
                     #append to the bulk inserts
                     inserts.append(row)
                 
@@ -3393,7 +3386,8 @@ class Database:
     
     def defaultTourneyTypeValue(self, value1, value2, field):
         if ((not value1) or 
-           (field=='maxSeats' and value1>value2) or 
+           (field=='maxseats' and value1>value2) or 
+           (field=='limitType' and value2=='mx') or 
            ((field,value1)==('buyinCurrency','NA')) or 
            ((field,value1)==('stack','Regular')) or
            ((field,value1)==('speed','Normal')) or
@@ -3415,6 +3409,7 @@ class Database:
     
     def createOrUpdateTourneyType(self, obj):
         ttid, _ttid, updateDb = None, None, False
+        setattr(obj, 'limitType', obj.gametype['limitType'])
         cursor = self.get_cursor()
         q = self.sql.query['getTourneyTypeIdByTourneyNo'].replace('%s', self.sql.query['placeholder'])
         cursor.execute(q, (obj.tourNo, obj.siteId))
@@ -3423,7 +3418,7 @@ class Database:
         if result != None:
             columnNames=[desc[0] for desc in cursor.description]
             if self.backend == self.PGSQL:
-                expectedValues = (('buyin', 'buyin'), ('fee', 'fee'), ('buyinCurrency', 'currency'),('isSng', 'sng'), ('maxseats', 'maxseats')
+                expectedValues = (('buyin', 'buyin'), ('fee', 'fee'), ('buyinCurrency', 'currency'), ('limitType', 'limitType'), ('isSng', 'sng'), ('maxseats', 'maxseats')
                              , ('isKO', 'knockout'), ('koBounty', 'kobounty'), ('isRebuy', 'rebuy'), ('rebuyCost', 'rebuycost')
                              , ('isAddOn', 'addon'), ('addOnCost','addoncost'), ('speed', 'speed'), ('isShootout', 'shootout')
                              , ('isMatrix', 'matrix'), ('isFast', 'fast'), ('stack', 'stack'), ('isStep', 'step'), ('stepNo', 'stepno')
@@ -3432,8 +3427,8 @@ class Database:
                              , ('timeAmt', 'timeamt'), ('isSatellite', 'satellite'), ('isDoubleOrNothing', 'doubleornothing'), ('isCashOut', 'cashout')
                              , ('isOnDemand', 'ondemand'), ('isFlighted', 'flighted'), ('isGuarantee', 'guarantee'), ('guaranteeAmt', 'guaranteeamt'))
             else:
-                expectedValues = (('buyin', 'buyin'), ('fee', 'fee'), ('buyinCurrency', 'currency'),('isSng', 'sng'), ('maxseats', 'maxSeats')
-                             , ('isKO', 'knockout'), ('koBounty', 'koBounty'), ('isRebuy', 'rebuy'), ('rebuyCost', 'rebuyCost')
+                expectedValues = (('buyin', 'buyin'), ('fee', 'fee'), ('buyinCurrency', 'currency'), ('limitType', 'limitType'), ('isSng', 'sng')
+                             , ('maxseats', 'maxSeats'), ('isKO', 'knockout'), ('koBounty', 'koBounty'), ('isRebuy', 'rebuy'), ('rebuyCost', 'rebuyCost')
                              , ('isAddOn', 'addOn'), ('addOnCost','addOnCost'), ('speed', 'speed'), ('isShootout', 'shootout') 
                              , ('isMatrix', 'matrix'), ('isFast', 'fast'), ('stack', 'stack'), ('isStep', 'step'), ('stepNo', 'stepNo')
                              , ('isChance', 'chance'), ('chanceCount', 'chanceCount'), ('isMultiEntry', 'multiEntry'), ('isReEntry', 'reEntry')
@@ -3452,11 +3447,13 @@ class Database:
                     oldttid = ttid
         if not result or updateDb:
             if obj.gametype['mix']!='none':
-                category = obj.gametype['mix']
+                category, limitType = obj.gametype['mix'], 'mx'
+            elif result != None and resultDict['limitType']=='mx':
+                category, limitType = resultDict['category'], 'mx'
             else:
-                category = obj.gametype['category']
+                category, limitType = obj.gametype['category'], obj.gametype['limitType']
             row = (obj.siteId, obj.buyinCurrency, obj.buyin, obj.fee, category,
-                   obj.gametype['limitType'], obj.maxseats, obj.isSng, obj.isKO, obj.koBounty,
+                   limitType, obj.maxseats, obj.isSng, obj.isKO, obj.koBounty,
                    obj.isRebuy, obj.rebuyCost, obj.isAddOn, obj.addOnCost, obj.speed, obj.isShootout, 
                    obj.isMatrix, obj.isFast, obj.stack, obj.isStep, obj.stepNo, obj.isChance, obj.chanceCount,
                    obj.isMultiEntry, obj.isReEntry, obj.isHomeGame, obj.isNewToGame, obj.isFifty50, obj.isTime,

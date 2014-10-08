@@ -24,6 +24,7 @@ import traceback
 from optparse import OptionParser
 import os
 import os.path
+import ntpath
 import xml.dom.minidom
 import codecs
 from decimal_wrapper import Decimal
@@ -83,6 +84,7 @@ out_path  (default '-' = sys.stdout)
         self.ftpArchive = ftpArchive
 
         self.in_path = in_path
+        self.base_name = self.getBasename()
         self.out_path = out_path
         self.kodec = None
 
@@ -532,6 +534,11 @@ or None if we fail to get the info """
 
     def getParsedObjectType(self):
         return self.parsedObjectType
+    
+    def getBasename(self):
+        head, tail = ntpath.split(self.in_path)
+        base = tail or ntpath.basename(head)
+        return base.split('.')[0]
 
     #returns a status (True/False) indicating wether the parsing could be done correctly or not
     def readSummaryInfo(self, summaryInfoList): abstract
@@ -671,6 +678,8 @@ or None if we fail to get the info """
             money = money.replace('K', '000')
         if 'M' in money:
             money = money.replace('M', '000000')
+        if 'B' in money:
+            money = money.replace('B', '000000000')
         if money[-1] in ('.', ','):
             money = money[:-1]
         if len(money) < 3:

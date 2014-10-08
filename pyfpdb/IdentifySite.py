@@ -35,8 +35,8 @@ except:
 log = logging.getLogger("parser")
 
 re_SplitArchive, re_XLS  = {}, {}
-re_SplitArchive['PokerStars'] = re.compile(r'(?P<SPLIT>^Hand #(\d+)\s*$)', re.MULTILINE)
-re_SplitArchive['Fulltilt'] = re.compile(r'(?P<SPLIT>(\*{20}\s#\s\d+\s\*{20,25}\s?)|(BEGIN\s*FullTiltPoker))', re.MULTILINE)
+re_SplitArchive['PokerStars'] = re.compile(r'(?P<DIVIDER>^Hand #(\d+)\s*$)', re.MULTILINE)
+re_SplitArchive['Fulltilt'] = re.compile(r'(?P<DIVIDER>(\*{20}\s#\s\d+\s\*{20,25}\s?))|((?P<HEAD>(BEGIN)?\n)?FullTiltPoker.+\n\nSeat)', re.MULTILINE)
 re_XLS['PokerStars'] = re.compile(r'Tournaments\splayed\sby\s\'.+?\'')
 re_XLS['Fulltilt'] = re.compile(r'Player\sTournament\sReport\sfor\s.+?\s\(.*\)')
 
@@ -46,7 +46,8 @@ class FPDBFile:
     site = None
     kodec = None
     archive = False
-    archiveSplit = ''
+    archiveHead = False
+    archiveDivider = False
     gametype = False
     hero = '-'
 
@@ -73,6 +74,7 @@ class Site:
             self.summary = None
         self.line_delimiter = self.getDelimiter(filter_name)
         self.line_addendum  = self.getAddendum(filter_name)
+        self.spaces  = filter_name == 'Entraction'
         self.getHeroRegex(obj, filter_name)
         
     def getDelimiter(self, filter_name):
@@ -231,10 +233,13 @@ class IdentifySite:
             filter_name = site.filter_name
             m = site.re_Identify.search(whole_file)
             if m and filter_name in ('Fulltilt', 'PokerStars'):
-                m1 = re_SplitArchive[filter_name].search(whole_file)
+                m1 = re_SplitArchive[filter_name].search(whole_file.replace('\r\n', '\n'))
                 if m1:
                     f.archive = True
-                    f.archiveSplit = m1.group('SPLIT')
+                    if 'DIVIDER' in m1.groupdict() and m1.group('DIVIDER'):
+                        f.archiveDivider = True  
+                    if 'HEAD' in m1.groupdict() and m1.group('HEAD'):
+                        f.archiveHead = True   
             if m:
                 f.site = site
                 f.ftype = "hh"
@@ -274,14 +279,16 @@ class IdentifySite:
             f.site = Site('PokerTracker', filter, filter_name, summary, obj)
             if m1:
                 f.ftype = "hh"
-                re_SplitHands = re.compile(u'\*{2}\sGame\sID\s')
-                if re_SplitHands.search( m1.group()):
+                if re.search(u'\*{2}\sGame\sID\s', m1.group()):
                     f.site.line_delimiter = None
                     f.site.re_SplitHands = re.compile(u'End\sof\sgame\s\d+')
-                re_SplitHands = re.compile(u'\*{2}\sHand\s\#\s')
-                if re_SplitHands.search( m1.group()):
+                elif re.search(u'\*{2}\sHand\s\#\s', m1.group()):
                     f.site.line_delimiter = None
                     f.site.re_SplitHands = re.compile(u'Rake:\s[^\s]+')
+                elif re.search(u'Server\spoker\d+\.ipoker\.com', whole_file[:250]):
+                    f.site.line_delimiter = None
+                    f.site.spaces = True
+                    f.site.re_SplitHands = re.compile(u'GAME\s\#')
                 m3 = f.site.re_HeroCards1.search(whole_file)
                 if m3:
                     f.hero = m3.group('PNAME')

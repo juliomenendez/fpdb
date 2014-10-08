@@ -81,6 +81,7 @@ class Hand(object):
         self.buttonpos = 0
         self.runItTimes = 0
         self.uncalledbets = False
+        self.checkForUncalled = False
         self.adjustCollected = False
 
         #tourney stuff
@@ -356,7 +357,7 @@ class Hand(object):
             else:
                 heroes = [self.dbid_pids[self.players[0][1]]]
 
-            db.storeSessionsCache(self.dbid_hands, self.dbid_pids, self.startTime, heroes, tz, doinsert)
+            db.storeSessionsCache(self.dbid_hands, self.dbid_pids, self.startTime, self.tourneyId, heroes, tz, doinsert)
             db.storeCashCache(self.dbid_hands, self.dbid_pids, self.startTime, self.dbid_gt, self.gametype, self.handsplayers, heroes, self.hero, doinsert)
             db.storeTourCache(self.dbid_hands, self.dbid_pids, self.startTime, self.tourneyId, self.gametype, self.handsplayers, heroes, self.hero, doinsert)
 
@@ -568,6 +569,14 @@ class Hand(object):
             if sitout:
                 self.sitout.add(name)
 
+    def removePlayer(self, name):
+        if self.stacks.get(name):
+            self.players = [p for p in self.players if p[1]!=name]
+            del self.stacks[name]
+            self.pot.removePlayer(name)
+            for street in self.actionStreets:
+                del self.bets[street][name]
+            self.sitout.discard(name)
 
     def addStreets(self, match):
         # go through m and initialise actions to empty list for each street.
@@ -846,20 +855,6 @@ class Hand(object):
         else:
             self.collectees[player] += Decimal(pot)
 
-
-    def addShownCards(self, cards, player, holeandboard=None, shown=True, mucked=False, string=None):
-        """ For when a player shows cards for any reason (for showdown or out of choice).
-            Card ranks will be uppercased """
-        log.debug("addShownCards %s hole=%s all=%s" % (player, cards,  holeandboard))
-        if cards is not None:
-            self.addHoleCards(cards,player,shown, mucked)
-            if string is not None:
-                self.showdownStrings[player] = string
-        elif holeandboard is not None:
-            holeandboard = set([self.card(c) for c in holeandboard])
-            board = set([c for s in self.board.values() for c in s])
-            self.addHoleCards(holeandboard.difference(board),player,shown, mucked)
-
     def sittingOut(self):
         dealtIn = set()
         for i, street in enumerate(self.actionStreets):
@@ -869,9 +864,14 @@ class Hand(object):
             dealtIn.add(player)
         for player in self.dealt:
             dealtIn.add(player)
-        for p in self.players:
+        for p in list(self.players):
             if p[1] not in dealtIn:
-                self.sitout.add(p[1])
+                if self.gametype['type']=='tour':
+                    self.sitout.add(p[1])
+                else:
+                    self.removePlayer(p[1])
+        if len(self.players)<2:
+            raise FpdbHandPartial(_("Less than 2 players - Assuming hand '%s' was cancelled.") % (self.handid))
 
     def setUncalledBets(self, value):
         self.uncalledbets = value
@@ -887,27 +887,24 @@ class Hand(object):
         if self.adjustCollected:
             self.stats.awardPots(self)
 
-        if self.adjustCollected:
-            self.stats.awardPots(self)
+        def gettempcontainers(collected, collectees):
+            (collectedCopy, collecteesCopy, totalcollected) = ([], {}, 0)
+            for i,v in enumerate(sorted(collected, key=lambda collectee: collectee[1], reverse=True)):
+                if Decimal(v[1])!=0:
+                    totalcollected += Decimal(v[1])
+                    collectedCopy.append([v[0], Decimal(v[1])])
+            for k, j in collectees.iteritems():
+                if j!=0: collecteesCopy[k] = j
+            return collectedCopy, collecteesCopy, totalcollected
 
-        def gettempcontainers():
-            (collected, collectees, totalcollected) = ([], {}, 0)
-            for i,v in enumerate(self.collected):
-                totalcollected += Decimal(v[1])
-                collected.append([v[0], Decimal(v[1])])
-            for k, j in self.collectees.iteritems():
-                collectees[k] = j
-            return collected, collectees, totalcollected
-
-        if self.uncalledbets:
-            collected, collectees, totalcollected = gettempcontainers()
-            for i,v in enumerate(self.collected):
+        collected, collectees, totalcollected = gettempcontainers(self.collected, self.collectees)
+        if (self.uncalledbets or ((self.totalpot - totalcollected < 0) and self.checkForUncalled)):
+            for i,v in enumerate(sorted(self.collected, key=lambda collectee: collectee[1], reverse=True)):
                 if v[0] in self.pot.returned:
                     collected[i][1] = Decimal(v[1]) - self.pot.returned[v[0]]
                     collectees[v[0]] -= self.pot.returned[v[0]]
                     self.pot.returned[v[0]] = 0
-            if self.totalpot - totalcollected < 0:
-                (self.collected, self.collectees) = (collected, collectees)
+            (self.collected, self.collectees, self.totalcollected) = gettempcontainers(collected, collectees)
 
         # This gives us the amount collected, i.e. after rake
         if self.totalcollected is None:
@@ -1125,9 +1122,9 @@ class HoldemOmahaHand(Hand):
             self.pot.handid = self.handid # This is only required so Pot can throw it in totalPot
             self.totalPot() # finalise it (total the pot)
             hhc.getRake(self)
-            self.sittingOut()
             if self.maxseats is None:
                 self.maxseats = hhc.guessMaxSeats(self)
+            self.sittingOut()
             hhc.readOther(self)
             #print "\nHand:\n"+str(self)
         elif builtFrom == "DB":
@@ -1440,9 +1437,9 @@ class DrawHand(Hand):
             self.pot.handid = self.handid # This is only required so Pot can throw it in totalPot
             self.totalPot() # finalise it (total the pot)
             hhc.getRake(self)
-            self.sittingOut()
             if self.maxseats is None:
                 self.maxseats = hhc.guessMaxSeats(self)
+            self.sittingOut()
             hhc.readOther(self)
 
         elif builtFrom == "DB":
@@ -1618,6 +1615,7 @@ class StudHand(Hand):
             hhc.readAntes(self)
             hhc.readBringIn(self)
             hhc.readHeroCards(self)
+            hhc.readShowdownActions(self)
             # Read actions in street order
             for street in self.actionStreets:
                 if street == 'BLINDSANTES': continue # OMG--sometime someone folds in the ante round
@@ -1630,9 +1628,9 @@ class StudHand(Hand):
             self.pot.handid = self.handid # This is only required so Pot can throw it in totalPot
             self.totalPot() # finalise it (total the pot)
             hhc.getRake(self)
-            self.sittingOut()
             if self.maxseats is None:
                 self.maxseats = hhc.guessMaxSeats(self)
+            self.sittingOut()
             hhc.readOther(self)
 
         elif builtFrom == "DB":
@@ -1929,6 +1927,11 @@ class Pot(object):
         self.committed[player] = Decimal(0)
         self.common[player] = Decimal(0)
         self.antes[player] = Decimal(0)
+
+    def removePlayer(self,player):
+        del self.committed[player]
+        del self.common[player]
+        del self.antes[player]
 
     def addFold(self, player):
         # addFold must be called when a player folds

@@ -88,7 +88,7 @@ try:
     VERSION = subprocess.Popen(["git", "describe", "--tags", "--dirty"], stdout=subprocess.PIPE).communicate()[0]
     VERSION = VERSION[:-1]
 except:
-    VERSION = "0.40"
+    VERSION = "0.40.4"
 
 
 class fpdb:
@@ -670,7 +670,7 @@ class fpdb:
             except KeyError:
                 pass
         
-        column_headers=[_("Site"), _("Detect"), _("Screen Name"), _("Hand History Path"), _(""), _("Tournament Summary Path"), _("")]  # todo _("HUD")
+        column_headers=[_("Site"), _("Detect"), _("Screen Name"), _("Hand History Path"), "", _("Tournament Summary Path"), ""]  # todo _("HUD")
         #HUD column will contain a button that shows favseat and HUD locations. Make it possible to load screenshot to arrange HUD windowlets.
 
         table = gtk.Table(rows=len(available_site_names)+1, columns=len(column_headers), homogeneous=False)

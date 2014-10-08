@@ -111,7 +111,7 @@ class PokerStars(HandHistoryConverter):
     # Static regexes
     re_GameInfo     = re.compile(u"""
           (PokerStars|POKERSTARS)(?P<TITLE>\sGame|\sHand|\sHome\sGame|\sHome\sGame\sHand|Game|\sZoom\sHand|\sGAME)\s\#(?P<HID>[0-9]+):\s+
-          (\{.*\}\s+)?(Tournament\s\#                # open paren of tournament info
+          (\{.*\}\s+)?((?P<TOUR>(Zoom\s)?Tournament)\s\#                # open paren of tournament info
           (?P<TOURNO>\d+),\s
           # here's how I plan to use LS
           (?P<BUYIN>(?P<BIAMT>[%(LS)s\d\.]+)?\+?(?P<BIRAKE>[%(LS)s\d\.]+)?\+?(?P<BOUNTY>[%(LS)s\d\.]+)?\s?(?P<TOUR_ISO>%(LEGAL_ISO)s)?|Freeroll)\s+)?
@@ -249,6 +249,9 @@ class PokerStars(HandHistoryConverter):
         else:
             info['type'] = 'tour'
 
+            if 'ZOOM' in mg['TOUR']:
+                info['fast'] = True
+
         if not mg['CURRENCY'] and info['type']=='ring':
             info['currency'] = 'play'
 
@@ -381,8 +384,11 @@ class PokerStars(HandHistoryConverter):
             log.info('readButton: ' + _('not found'))
 
     def readPlayerStacks(self, hand):
-        log.debug("readPlayerStacks")
-        m = self.re_PlayerInfo.finditer(hand.handText)
+        handsplit = hand.handText.split('*** SUMMARY ***')
+        if len(handsplit)!=2:
+            raise FpdbHandPartial(_("Hand is not cleanly split into pre and post Summary %s.") % hand.handid)
+        pre, post = handsplit
+        m = self.re_PlayerInfo.finditer(pre)
         for a in m:
             hand.addPlayer(int(a.group('SEAT')), a.group('PNAME'), a.group('CASH'), None, a.group('SITOUT'))
 
@@ -524,7 +530,7 @@ class PokerStars(HandHistoryConverter):
             elif action.group('ATYPE') == ' calls':
                 hand.addCall( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' raises':
-                hand.addRaiseBy( street, action.group('PNAME'), action.group('BET') )
+                hand.addRaiseTo( street, action.group('PNAME'), action.group('BETTO') )
             elif action.group('ATYPE') == ' bets':
                 hand.addBet( street, action.group('PNAME'), action.group('BET') )
             elif action.group('ATYPE') == ' discards':
