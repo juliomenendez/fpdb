@@ -137,7 +137,7 @@ class PokerStars(HandHistoryConverter):
     re_PlayerInfo   = re.compile(u"""
           ^\s?Seat\s(?P<SEAT>[0-9]+):\s
           (?P<PNAME>.*)\s
-          \((%(LS)s)?(?P<CASH>[.0-9]+)\sin\schips\)
+          \((%(LS)s)?(?P<CASH>[,.0-9]+)\sin\schips\)
           (?P<SITOUT>\sis\ssitting\sout)?""" % substitutions,
           re.MULTILINE|re.VERBOSE)
 
