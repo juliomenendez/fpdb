@@ -83,7 +83,10 @@ if INSTALL_METHOD == "exe":
     temp = os.path.dirname(unicode(sys.executable, sys.getfilesystemencoding())) # should be exe path to \fpdbroot\pyfpdb
     FPDB_ROOT_PATH = os.path.join(temp, os.pardir)   # go up one level (to fpdbroot)
 elif hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
-    FPDB_ROOT_PATH = os.path.abspath(os.path.join(*((module_path,) + ('..',) * 4)))
+    if os.environ.get('DYNO', '') == 'vagrant':
+        FPDB_ROOT_PATH = os.path.abspath(os.path.join(*((module_path,) + ('..',) * 5)))
+    else:
+        FPDB_ROOT_PATH = os.path.abspath(os.path.join(*((module_path,) + ('..',) * 4)))
 elif sys.path[0] == "": # we are probably running directly (>>>import Configuration)
     temp = os.getcwdu() # should be ./pyfpdb
     FPDB_ROOT_PATH = os.path.join(temp, os.pardir)   # go up one level (to fpdbroot)
