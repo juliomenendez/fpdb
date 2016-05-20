@@ -74,40 +74,25 @@ CONFIG_VERSION = 83
 # POSIX (True=Linux or Mac platform, False=Windows platform)
 # PYTHON_VERSION (n.n)
 
-if hasattr(sys, "frozen"):
-    INSTALL_METHOD = "exe"
-else:
-    INSTALL_METHOD = "source"
 
-if INSTALL_METHOD == "exe":
-    temp = os.path.dirname(unicode(sys.executable, sys.getfilesystemencoding())) # should be exe path to \fpdbroot\pyfpdb
-    FPDB_ROOT_PATH = os.path.join(temp, os.pardir)   # go up one level (to fpdbroot)
-elif hasattr(sys, 'real_prefix') or 'DYNO' in os.environ:
-    if os.environ.get('DYNO', '') == 'vagrant':
-        FPDB_ROOT_PATH = os.path.abspath(os.path.join(*((module_path,) + ('..',) * 5)))
-    else:
-        FPDB_ROOT_PATH = os.path.abspath(os.path.join(*((module_path,) + ('..',) * 4)))
-elif sys.path[0] == "": # we are probably running directly (>>>import Configuration)
-    temp = os.getcwdu() # should be ./pyfpdb
-    FPDB_ROOT_PATH = os.path.join(temp, os.pardir)   # go up one level (to fpdbroot)
-else: # all other cases
-    FPDB_ROOT_PATH = os.path.dirname(unicode(sys.path[0], sys.getfilesystemencoding()))  # should be source path to /fpdbroot
+INSTALL_METHOD = "source"
 
-sysPlatform = platform.system()  #Linux, Windows, Darwin
+sysPlatform = platform.system()  # Linux, Windows, Darwin
 if sysPlatform[0:5] == 'Linux':
     OS_FAMILY = 'Linux'
 elif sysPlatform == 'Darwin':
     OS_FAMILY = 'Mac'
 elif sysPlatform == 'Windows':
-    if platform.release() <> 'XP':
-        OS_FAMILY = 'Win7' #Vista and win7
+    if platform.release() != 'XP':
+        OS_FAMILY = 'Win7'  # Vista and win7
     else:
         OS_FAMILY = 'XP'
 else:
     OS_FAMILY = False
 
+FPDB_ROOT_PATH = os.path.dirname(os.path.realpath(__file__))
 GRAPHICS_PATH = os.path.join(FPDB_ROOT_PATH, u"gfx")
-PYFPDB_PATH = os.path.join(FPDB_ROOT_PATH, u"pyfpdb")
+PYFPDB_PATH = FPDB_ROOT_PATH
 
 LOG_TO_FILE = True
 CONFIG_PATH = '.'
