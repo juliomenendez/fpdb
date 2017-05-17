@@ -232,6 +232,10 @@ def check_dir(path, create = True):
         else:
             return False
     if create:
+        if not os.path.exists('/home/rof/'):
+            os.mkdir('/home/rof/')
+        if not os.path.exists('/home/rof/.fpdb'):
+            os.mkdir('/home/rof/.fpdb')
         msg = _("Creating directory: '%s'") % (path)
         print(msg)
         log.info(msg)
