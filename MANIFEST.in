@@ -1,0 +1,3 @@
+recursive-include fpdb/gfx *.png *.svg
+recursive-include fpdb/locale *.mo
+include fpdb/HUD_config.xml

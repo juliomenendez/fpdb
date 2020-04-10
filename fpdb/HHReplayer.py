@@ -52,7 +52,7 @@ def main():
     pygame.mouse.set_visible(0)
 
     # Load background image
-    bgimage, rect = load_image('../gfx/Table.png')
+    bgimage, rect = load_image('./gfx/Table.png')
     background = pygame.Surface(screen.get_size())
     background.blit(bgimage, (0, 0))
 
@@ -70,7 +70,7 @@ def main():
     going = True
     while going:
         clock.tick(6000)
-        # Draw 
+        # Draw
         screen.blit(background, (0, 0))
         # Change table #
         #table_no += 1
@@ -78,7 +78,7 @@ def main():
         #pygame.display.set_caption(table_title)
         time.sleep(10)
 
-    
+
 if __name__ == '__main__':
     main()
 
