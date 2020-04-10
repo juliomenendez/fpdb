@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 setup(
     name='fpdb',
     description='Free Poker Database',
-    version='0.29',
+    version='0.30',
     author='FPDB team',
     author_email='fpdb-main@lists.sourceforge.net',
     packages=find_packages(),
