@@ -45,7 +45,7 @@ import Hand
 from Exceptions import *
 import Configuration
 
-class HandHistoryConverter():
+class HandHistoryConverter(object):
 
     READ_CHUNK_SIZE = 10000 # bytes to read at a time from file in tail mode
 
@@ -106,14 +106,14 @@ out_path  (default '-' = sys.stdout)
         self.status = True
 
         self.parsedObjectType = "HH"      #default behaviour : parsing HH files, can be "Summary" if the parsing encounters a Summary File
-        
+
 
         if autostart:
             self.start()
 
     def __str__(self):
         return """
-HandHistoryConverter: '%(sitename)s'  
+HandHistoryConverter: '%(sitename)s'
     filetype    '%(filetype)s'
     in_path     '%(in_path)s'
     out_path    '%(out_path)s'
@@ -125,7 +125,7 @@ HandHistoryConverter: '%(sitename)s'
         if not self.sanityCheck():
             log.warning(_("Failed sanity check"))
             return
-        
+
         self.numHands = 0
         self.numPartial = 0
         self.numErrors = 0
@@ -170,10 +170,10 @@ HandHistoryConverter: '%(sitename)s'
                 log.info(_("Summary file '%s' correctly parsed (took %.3f seconds)") % (self.in_path, endtime - starttime))
             else :
                 log.warning(_("Error converting summary file '%s' (took %.3f seconds)") % (self.in_path, endtime - starttime))
-    
+
     def setAutoPop(self, value):
         self.autoPop = value
-                
+
     def progressNotify(self):
         "A callback to the interface while events are pending"
         import gtk, pygtk
@@ -203,7 +203,7 @@ HandHistoryConverter: '%(sitename)s'
             # Remove  ******************** # 1 *************************
             m = re.compile('\*{20}\s#\s\d+\s\*{20,25}\s+', re.MULTILINE)
             self.obs = m.sub('', self.obs)
-    
+
         if self.obs is None or self.obs == "":
             log.info(_("Read no hands from file: '%s'") % self.in_path)
             return []
@@ -262,7 +262,7 @@ HandHistoryConverter: '%(sitename)s'
         else:
             log.error(_("%s Unsupported game type: %s") % (self.sitename, gametype))
             # TODO: pity we don't know the HID at this stage. Log the entire hand?
-            
+
     def isPartial(self, handText):
         count = 0
         for m in self.re_Identify.finditer(handText):
@@ -270,7 +270,7 @@ HandHistoryConverter: '%(sitename)s'
         if count!=1:
             return True
         return False
-    
+
     # These functions are parse actions that may be overridden by the inheriting class
     # This function should return a list of lists looking like:
     # return [["ring", "hold", "nl"], ["tour", "hold", "nl"]]
@@ -299,7 +299,7 @@ or None if we fail to get the info """
     #TODO: which parts are optional/required?
 
     def readHandInfo(self, hand): abstract
-    """Read and set information about the hand being dealt, and set the correct 
+    """Read and set information about the hand being dealt, and set the correct
     variables in the Hand object 'hand
 
     * hand.startTime - a datetime object
@@ -322,7 +322,7 @@ or None if we fail to get the info """
     #TODO: which parts are optional/required?
 
     def readPlayerStacks(self, hand): abstract
-    """This function is for identifying players at the table, and to pass the 
+    """This function is for identifying players at the table, and to pass the
     information on to 'hand' via Hand.addPlayer(seat, name, chips)
 
     At the time of writing the reference function in the PS converter is:
@@ -341,7 +341,7 @@ or None if we fail to get the info """
     def compilePlayerRegexs(self): abstract
     """Compile dynamic regexes -- compile player dependent regexes.
 
-    Depending on the ambiguity of lines you may need to match, and the complexity of 
+    Depending on the ambiguity of lines you may need to match, and the complexity of
     player names - we found that we needed to recompile some regexes for player actions so that they actually contained the player names.
 
     eg.
@@ -405,7 +405,7 @@ or None if we fail to get the info """
     def readShownCards(self, hand): abstract
     def readTourneyResults(self, hand): abstract
     """This function is for future use in parsing tourney results directly from a hand"""
-    
+
     # EDIT: readOther is depreciated
     # Some sites do odd stuff that doesn't fall in to the normal HH parsing.
     # e.g., FTP doesn't put mixed game info in the HH, but puts in in the
@@ -491,10 +491,10 @@ or None if we fail to get the info """
         # if some other code prior to this has already set it, return it
         if not self.copyGameHeader and hand.gametype['type']=='tour':
             return 10
-            
+
         if self.maxseats > 1 and self.maxseats < 11:
             return self.maxseats
-        
+
         mo = self.maxOccSeat(hand)
 
         if mo == 10: return 10 #that was easy
@@ -504,7 +504,7 @@ or None if we fail to get the info """
 
         if hand.gametype['base'] == 'draw':
             if mo <= 6: return 6
-            
+
         return 10
 
     def maxOccSeat(self, hand):
@@ -538,13 +538,13 @@ or None if we fail to get the info """
 
     def getTourney(self):
         return self.tourney
-        
+
     @staticmethod
     def changeTimezone(time, givenTimezone, wantedTimezone):
         """Takes a givenTimezone in format AAA or AAA+HHMM where AAA is a standard timezone
            and +HHMM is an optional offset (+/-) in hours (HH) and minutes (MM)
            (See OnGameToFpdb.py for example use of the +HHMM part)
-           Tries to convert the time parameter (with no timezone) from the givenTimezone to 
+           Tries to convert the time parameter (with no timezone) from the givenTimezone to
            the wantedTimeZone (currently only allows "UTC")
         """
         #log.debug("raw time: " + str(time) + " given time zone: " + str(givenTimezone))
@@ -570,7 +570,7 @@ or None if we fail to get the info """
         elif givenTimezone == 'GMT': # GMT is always the same as UTC
             givenTZ = timezone('GMT')
             # GMT cannot be treated as WET because some HH's are explicitly
-            # GMT+-delta so would be incorrect during the summertime 
+            # GMT+-delta so would be incorrect during the summertime
             # if substituted as WET+-delta
         elif givenTimezone == 'BST':
              givenTZ = timezone('Europe/London')
@@ -624,7 +624,7 @@ or None if we fail to get the info """
             # Each State on the East Coast has different DSTs.
             # Melbournce is out because I don't like AFL, Queensland doesn't have DST
             # ACT is full of politicians and Tasmania will never notice.
-            # Using Sydney. 
+            # Using Sydney.
             givenTZ = timezone('Australia/Sydney')
         elif givenTimezone == 'NZT': # New Zealand Time
             givenTZ = timezone('Pacific/Auckland')
@@ -706,18 +706,18 @@ def get_out_fh(out_path, parameters):
     if out_path == '-':
         return(sys.stdout)
     elif parameters['saveStarsHH']:
-        out_dir = os.path.dirname(out_path) 
-        if not os.path.isdir(out_dir) and out_dir != '': 
-            try: 
-                os.makedirs(out_dir) 
-            except: # we get a WindowsError here in Windows.. pretty sure something else for Linux :D 
-                log.error(_("Unable to create output directory %s for HHC!") % out_dir) 
+        out_dir = os.path.dirname(out_path)
+        if not os.path.isdir(out_dir) and out_dir != '':
+            try:
+                os.makedirs(out_dir)
+            except: # we get a WindowsError here in Windows.. pretty sure something else for Linux :D
+                log.error(_("Unable to create output directory %s for HHC!") % out_dir)
                 print(_("Unable to create output directory %s for HHC!") % out_dir)
-            else: 
-                log.info(_("Created directory '%s'") % out_dir) 
-        try: 
-            return(codecs.open(out_path, 'w', 'utf8')) 
-        except: 
-            log.error(_("Output path %s couldn't be opened.") % (out_path)) 
+            else:
+                log.info(_("Created directory '%s'") % out_dir)
+        try:
+            return(codecs.open(out_path, 'w', 'utf8'))
+        except:
+            log.error(_("Output path %s couldn't be opened.") % (out_path))
     else:
         return(sys.stdout)
